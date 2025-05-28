@@ -65,6 +65,7 @@ MIDDLEWARE = [
 
 CORS_ALLOWED_ORIGINS = [
     "https://handcar.ae",
+    "https://api.handcar.ae",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -72,6 +73,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "https://handcar.ae",
+    "https://api.handcar.ae",
 ]
 
 
