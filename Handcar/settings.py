@@ -33,7 +33,7 @@ CSRF_COOKIE_SECURE = True
 ALLOWED_HOSTS = [
     'api.handcar.ae',
     'handcar.ae',
-    '51.20.35.161',  # optional but good for direct IP access
+    '51.21.228.213',  # optional but good for direct IP access
     'localhost',           # for local testing
     '127.0.0.1',
 ]
