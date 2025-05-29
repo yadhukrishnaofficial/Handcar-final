@@ -66,15 +66,18 @@ MIDDLEWARE = [
 CORS_ALLOWED_ORIGINS = [
       "https://handcar.ae",
     "https://api.handcar.ae",
+    "https://admin.handcar.ae",
+    "https://vendor.handcar.ae",
 ]
 
 
 CORS_ALLOW_CREDENTIALS = True
-#updatw
 
 CSRF_TRUSTED_ORIGINS = [
     "https://handcar.ae",
     "https://api.handcar.ae",
+    "https://admin.handcar.ae",
+    "https://vendor.handcar.ae",
 ]
 
 
@@ -101,6 +104,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'Handcar.wsgi.application'
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'App1.authentication.CustomJWTAuthentication',  # Check cookies first, then fallback
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # Only checks headers
+    ),
+}
+
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),  # Adjust as needed
+    'REFRESH_TOKEN_LIFETIME': timedelta(weeks=4),     # Adjust as needed
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'AUTH_COOKIE': 'access_token',                    # Name of the access token cookie
+    'AUTH_COOKIE_REFRESH': 'refresh_token',           # Name of the refresh token cookie
+    'AUTH_COOKIE_SECURE': True,                      # Set to True in production
+    'AUTH_COOKIE_HTTP_ONLY': True,                    # Cookie is HTTP only
+    'AUTH_COOKIE_PATH': '/',                          # Cookie path
+    'AUTH_COOKIE_SAMESITE': 'None',                  # Adjust based on your needs (None, Lax, Strict)
+    'AUTH_COOKIE_EXPIRES': timedelta(days=30),        # Set cookie expiration to 30 days
+    'UPDATE_LAST_LOGIN': True
+
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
