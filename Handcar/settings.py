@@ -29,14 +29,16 @@ SECURE_SSL_REDIRECT = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 
-
 ALLOWED_HOSTS = [
     'api.handcar.ae',
     'handcar.ae',
-    '51.21.228.213',  # optional but good for direct IP access
-    'localhost',           # for local testing
+    'admin.handcar.ae',
+    'vendor.handcar.ae',
+    '51.21.228.213',  # optional
+    'localhost',
     '127.0.0.1',
 ]
+
 
 
 # Application definition
@@ -106,7 +108,7 @@ WSGI_APPLICATION = 'Handcar.wsgi.application'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'App1.authentication.CustomJWTAuthentication',  # Check cookies first, then fallback
+        'Handcarapp.authentication.CustomJWTAuthentication', # Check cookies first, then fallback
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # Only checks headers
     ),
 }
