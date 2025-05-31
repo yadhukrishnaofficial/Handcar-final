@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - main  # Runs CI/CD when pushing to main branch
+      - main
 
 jobs:
   deploy:
@@ -24,18 +24,23 @@ jobs:
           git pull origin main
           source venv/bin/activate
           pip install -r requirements.txt
+
+          #  Write .env file using GitHub secrets
+          echo "CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}" > .env
+          echo "CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}" >> .env
+          echo "CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}" >> .env
+
           python manage.py migrate
-          # Removed collectstatic since static files are not used
           deactivate
-          # Remove conflicting Nginx configurations
+
           sudo rm -f /etc/nginx/sites-available/Handcar
           sudo rm -f /etc/nginx/sites-enabled/Handcar
           sudo rm -f /etc/nginx/sites-enabled/default
-          # Set permissions for socket and project directory
+
           sudo chown -R ubuntu:www-data /home/ubuntu/Handcar-final
           sudo chmod -R u+rwX,g+rX /home/ubuntu/Handcar-final
           sudo chmod g+x /home/ubuntu
-          sudo chmod 660 /home/ubuntu/Handcar-final.sock || true  # Handle case where socket doesn't exist yet
-          # Restart Gunicorn and Nginx with config validation
+          sudo chmod 660 /home/ubuntu/Handcar-final.sock || true
+
           sudo systemctl restart gunicorn
           sudo nginx -t && sudo systemctl restart nginx
