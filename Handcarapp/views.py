@@ -764,6 +764,9 @@ def delete_brand(request, brand_id):
 
 
 from cloudinary.uploader import upload
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 @csrf_exempt
 def add_product(request):
     if request.method == 'POST':
