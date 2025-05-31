@@ -763,33 +763,49 @@ def delete_brand(request, brand_id):
 
 
 
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from cloudinary.uploader import upload
-import cloudinary
-import cloudinary.uploader
-from cloudinary.utils import cloudinary_url
+
 @csrf_exempt
 def add_product(request):
     if request.method == 'POST':
         try:
-            # Check if the request contains files and form-data
-            if request.FILES.get('image'):  # Check for image file
-                image_file = request.FILES['image']
-            else:
-                image_file = None  # In case no image is uploaded
+            # Check if the request contains image file
+            image_file = request.FILES.get('image')
 
-            # Get other data from the form (using request.POST)
+            # Get other data from the form (strings from POST)
             name = request.POST.get('name')
-            category_name = request.POST.get('category_name')  # Use name instead of ID
-            brand_name = request.POST.get('brand_name')        # Use name instead of ID
+            category_name = request.POST.get('category_name')
+            brand_name = request.POST.get('brand_name')
             price = request.POST.get('price')
             description = request.POST.get('description', '')
-            stock = request.POST. get('stock')
-            is_bestseller = request.POST.get('is_bestseller', False)
-            discount_percentage = request.POST.get('discount_percentage', 0)
+            stock = request.POST.get('stock')
+            is_bestseller = request.POST.get('is_bestseller', 'false').lower() == 'true'  # Convert to bool
+            discount_percentage = request.POST.get('discount_percentage', '0')
 
-            # Validate required fields
-            if not name or not category_name or not brand_name or not price:
-                return JsonResponse({"error": "Name, category_name, brand_name, and price are required."}, status=400)
+            # Validate required fields are present
+            if not all([name, category_name, brand_name, price, stock]):
+                return JsonResponse({
+                    "error": "Name, category_name, brand_name, price, and stock are required."
+                }, status=400)
+
+            # Convert numeric fields to proper types
+            try:
+                price = float(price)
+            except ValueError:
+                return JsonResponse({"error": "Price must be a valid number."}, status=400)
+
+            try:
+                stock = int(stock)
+            except ValueError:
+                return JsonResponse({"error": "Stock must be a valid integer."}, status=400)
+
+            try:
+                discount_percentage = int(discount_percentage)
+            except ValueError:
+                discount_percentage = 0  # default to 0 if invalid
 
             # Retrieve related objects by name
             category = get_object_or_404(Category, name=category_name)
@@ -804,7 +820,7 @@ def add_product(request):
                 except Exception as e:
                     return JsonResponse({"error": f"Image upload failed: {str(e)}"}, status=500)
 
-            # Create the Product instance
+            # Create the Product instance with validated/converted values
             product = Product.objects.create(
                 name=name,
                 category=category,
@@ -814,7 +830,7 @@ def add_product(request):
                 stock=stock,
                 is_bestseller=is_bestseller,
                 discount_percentage=discount_percentage,
-                image=image_url  # Save the Cloudinary image URL
+                image=image_url
             )
 
             return JsonResponse({
@@ -829,7 +845,7 @@ def add_product(request):
                     "stock": product.stock,
                     "is_bestseller": product.is_bestseller,
                     "discount_percentage": product.discount_percentage,
-                    "image": product.image,  # Return Cloudinary image URL
+                    "image": product.image,
                     "created_at": product.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 }
             }, status=201)
