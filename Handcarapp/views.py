@@ -1421,7 +1421,7 @@ def send_vendor_notification(vendor_id, message):
             'message': message,  # Notification message
         }
     )
-
+@csrf_exempt
 def add_subscriber(request):
     try:
         data = json.loads(request.body)
