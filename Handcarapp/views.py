@@ -1264,33 +1264,79 @@ def view_plans(request):
 
 
 
+# @csrf_exempt
+# def edit_plan(request, plan_id):
+#     if request.method == 'PUT':
+#         try:
+#             # Retrieve the plan to be edited
+#             plans = get_object_or_404(Plan, id=plan_id)
+
+#             # Parse JSON data
+#             data = json.loads(request.body)
+
+#             # Update fields if provided
+#             plans.name = data.get('name', plans.name)
+#             plans.service_type = data.get('service_type', plans.service_type)
+#             plans.duration = data.get('duration', plans.duration)
+#             plans.price = data.get('price', plans.price)
+#             plans.description = data.get('description', plans.description)
+
+#             # Save the updated plan
+#             plans.save()
+
+#             return JsonResponse({"message": "Coupon updated successfully."}, status=200)
+
+#         except Exception as e:
+#             return JsonResponse({"error": str(e)}, status=500)
+
+#     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+
 @csrf_exempt
 def edit_plan(request, plan_id):
-    if request.method == 'PUT':
-        try:
-            # Retrieve the plan to be edited
-            plans = get_object_or_404(Plan, id=plan_id)
+    try:
+        # Fetch the plan object or return 404
+        plan = get_object_or_404(Plan, id=plan_id)
 
-            # Parse JSON data
-            data = json.loads(request.body)
+        if request.method == 'GET':
+            # Return existing plan details
+            return JsonResponse({
+                "id": plan.id,
+                "name": plan.name,
+                "service_type": plan.service_type,
+                "duration": plan.duration,
+                "price": float(plan.price),  # Ensure JSON serializable
+                "description": plan.description,
+            }, status=200)
 
-            # Update fields if provided
-            plans.name = data.get('name', plans.name)
-            plans.service_type = data.get('service_type', plans.service_type)
-            plans.duration = data.get('duration', plans.duration)
-            plans.price = data.get('price', plans.price)
-            plans.description = data.get('description', plans.description)
+        elif request.method == 'PUT':
+            try:
+                # Parse JSON data
+                data = json.loads(request.body)
 
-            # Save the updated plan
-            plans.save()
+                # Update fields if provided
+                plan.name = data.get('name', plan.name)
+                plan.service_type = data.get('service_type', plan.service_type)
+                plan.duration = data.get('duration', plan.duration)
+                plan.price = data.get('price', plan.price)
+                plan.description = data.get('description', plan.description)
 
-            return JsonResponse({"message": "Coupon updated successfully."}, status=200)
+                # Save changes
+                plan.save()
 
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+                return JsonResponse({"message": "Plan updated successfully."}, status=200)
 
-    return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+            except json.JSONDecodeError:
+                return JsonResponse({"error": "Invalid JSON format."}, status=400)
+            except Exception as e:
+                return JsonResponse({"error": str(e)}, status=500)
 
+        else:
+            return JsonResponse({"error": "Method not allowed. Use GET or PUT."}, status=405)
+
+    except Plan.DoesNotExist:
+        return JsonResponse({"error": "Plan not found."}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
