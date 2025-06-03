@@ -1100,37 +1100,83 @@ def view_coupons(request):
 
 
 
+# @csrf_exempt
+# def edit_coupons(request, coupon_id):
+#     if request.method == 'PUT':
+#         try:
+#             # Retrieve the vendor to be edited
+#             coupons = get_object_or_404(Coupon, id=coupon_id)
+
+#             # Parse JSON data
+#             data = json.loads(request.body)
+
+#             # Update fields if provided
+#             coupons.name = data.get('name', coupons.name)
+#             coupons.coupon_code = data.get('coupon_code', coupons.coupon_code)
+#             coupons.discount_percentage = data.get('discount_percentage', coupons.discount_percentage)
+#             coupons.start_date = data.get('start_date', coupons.start_date)
+#             coupons.end_date = data.get('end_date', coupons.end_date)
+#             coupons.description = data.get('description', coupons.description)
+
+#             # Log the updated values
+#             print("Updated Coupon Data:", coupons.name, coupons.coupon_code, coupons.discount_percentage)
+
+#             # Save the updated coupon
+#             coupons.save()
+
+#             return JsonResponse({"message": "Coupon updated successfully."}, status=200)
+
+#         except Exception as e:
+#             return JsonResponse({"error": str(e)}, status=500)
+
+#     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+import json
+from datetime import datetime
+from .models import Coupon  # adjust path if needed
+
 @csrf_exempt
+@require_http_methods(["PUT"])
 def edit_coupons(request, coupon_id):
-    if request.method == 'PUT':
-        try:
-            # Retrieve the vendor to be edited
-            coupons = get_object_or_404(Coupon, id=coupon_id)
+    try:
+        coupon = get_object_or_404(Coupon, id=coupon_id)
+        data = json.loads(request.body)
 
-            # Parse JSON data
-            data = json.loads(request.body)
+        coupon.name = data.get('name', coupon.name)
+        coupon.coupon_code = data.get('coupon_code', coupon.coupon_code)
+        coupon.discount_percentage = data.get('discount_percentage', coupon.discount_percentage)
 
-            # Update fields if provided
-            coupons.name = data.get('name', coupons.name)
-            coupons.coupon_code = data.get('coupon_code', coupons.coupon_code)
-            coupons.discount_percentage = data.get('discount_percentage', coupons.discount_percentage)
-            coupons.start_date = data.get('start_date', coupons.start_date)
-            coupons.end_date = data.get('end_date', coupons.end_date)
-            coupons.description = data.get('description', coupons.description)
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
 
-            # Log the updated values
-            print("Updated Coupon Data:", coupons.name, coupons.coupon_code, coupons.discount_percentage)
+        if start_date:
+            coupon.start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+            coupon.end_date = datetime.strptime(end_date, "%Y-%m-%d")
 
-            # Save the updated coupon
-            coupons.save()
+        coupon.description = data.get('description', coupon.description)
 
-            return JsonResponse({"message": "Coupon updated successfully."}, status=200)
+        coupon.save()
 
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({
+            "message": "Coupon updated successfully.",
+            "coupon": {
+                "id": coupon.id,
+                "name": coupon.name,
+                "coupon_code": coupon.coupon_code,
+                "discount_percentage": coupon.discount_percentage,
+                "start_date": coupon.start_date.strftime("%Y-%m-%d"),
+                "end_date": coupon.end_date.strftime("%Y-%m-%d"),
+                "description": coupon.description,
+            }
+        }, status=200)
 
-    return JsonResponse({"error": "Invalid HTTP method."}, status=405)
-
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
