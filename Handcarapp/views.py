@@ -1130,54 +1130,48 @@ def view_coupons(request):
 #             return JsonResponse({"error": str(e)}, status=500)
 
 #     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
-
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-import json
-from datetime import datetime
-from .models import Coupon  # adjust path if needed
-
 @csrf_exempt
-@require_http_methods(["PUT"])
 def edit_coupons(request, coupon_id):
     try:
         coupon = get_object_or_404(Coupon, id=coupon_id)
-        data = json.loads(request.body)
 
-        coupon.name = data.get('name', coupon.name)
-        coupon.coupon_code = data.get('coupon_code', coupon.coupon_code)
-        coupon.discount_percentage = data.get('discount_percentage', coupon.discount_percentage)
-
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-
-        if start_date:
-            coupon.start_date = datetime.strptime(start_date, "%Y-%m-%d")
-        if end_date:
-            coupon.end_date = datetime.strptime(end_date, "%Y-%m-%d")
-
-        coupon.description = data.get('description', coupon.description)
-
-        coupon.save()
-
-        return JsonResponse({
-            "message": "Coupon updated successfully.",
-            "coupon": {
+        if request.method == 'GET':
+            # Return existing coupon details
+            return JsonResponse({
                 "id": coupon.id,
                 "name": coupon.name,
                 "coupon_code": coupon.coupon_code,
                 "discount_percentage": coupon.discount_percentage,
-                "start_date": coupon.start_date.strftime("%Y-%m-%d"),
-                "end_date": coupon.end_date.strftime("%Y-%m-%d"),
+                "start_date": coupon.start_date.strftime("%Y-%m-%d") if coupon.start_date else None,
+                "end_date": coupon.end_date.strftime("%Y-%m-%d") if coupon.end_date else None,
                 "description": coupon.description,
-            }
-        }, status=200)
+            }, status=200)
+
+        elif request.method == 'PUT':
+            data = json.loads(request.body)
+
+            coupon.name = data.get('name', coupon.name)
+            coupon.coupon_code = data.get('coupon_code', coupon.coupon_code)
+            coupon.discount_percentage = data.get('discount_percentage', coupon.discount_percentage)
+
+            start_date = data.get('start_date')
+            end_date = data.get('end_date')
+            if start_date:
+                coupon.start_date = datetime.strptime(start_date, "%Y-%m-%d")
+            if end_date:
+                coupon.end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+            coupon.description = data.get('description', coupon.description)
+
+            coupon.save()
+
+            return JsonResponse({"message": "Coupon updated successfully."}, status=200)
+
+        else:
+            return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
 
 @csrf_exempt
 def delete_coupons(request, coupon_id):
