@@ -1155,7 +1155,7 @@ def edit_coupons(request, coupon_id):
                 "description": coupon.description,
             }, status=200)
 
-        elif request.method == 'POST':
+        elif request.method == 'PUT':
             data = json.loads(request.body)
 
             coupon.name = data.get('name', coupon.name)
@@ -2663,8 +2663,10 @@ def view_services_by_admin(request):
             vendors = Services.objects.all()
         data = [{"id": vendor.id,
                  "name": vendor.vendor_name,
-                 "price": vendor.phone_number,
-                 "email": vendor.email} for vendor in vendors]
+                 "phone number": vendor.phone_number,
+                 "email": vendor.email,
+                 "location": vendor.address, 
+                 "Joined at": vendor.created_at.strftime("%Y-%m-%d %H:%M:%S"} for vendor in vendors]
         return JsonResponse({"vendor": data}, safe=False)
 
 
