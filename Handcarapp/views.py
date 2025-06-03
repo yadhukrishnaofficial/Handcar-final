@@ -2666,7 +2666,7 @@ def view_services_by_admin(request):
                  "phone number": vendor.phone_number,
                  "email": vendor.email,
                  "location": vendor.address, 
-                 "Joined at": vendor.created_at.strftime("%Y-%m-%d %H:%M:%S"} for vendor in vendors]
+                 "Joined at": vendor.created_at.strftime("%Y-%m-%d %H:%M:%S")} for vendor in vendors]
         return JsonResponse({"vendor": data}, safe=False)
 
 
