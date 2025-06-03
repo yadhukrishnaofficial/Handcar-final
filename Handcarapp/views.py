@@ -1130,6 +1130,14 @@ def view_coupons(request):
 #             return JsonResponse({"error": str(e)}, status=500)
 
 #     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+import json
+from datetime import datetime
+from .models import Coupon  # adjust import if needed
+
 @csrf_exempt
 def edit_coupons(request, coupon_id):
     try:
@@ -1147,7 +1155,7 @@ def edit_coupons(request, coupon_id):
                 "description": coupon.description,
             }, status=200)
 
-        elif request.method == 'PUT':
+        elif request.method == 'POST':
             data = json.loads(request.body)
 
             coupon.name = data.get('name', coupon.name)
