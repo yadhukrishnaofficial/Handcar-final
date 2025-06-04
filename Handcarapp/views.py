@@ -293,7 +293,7 @@ def add_to_wishlist(request, product_id):
 @authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
 @csrf_exempt
-def wishlist_items(request):
+def get_wishlist_items(request):
     # Ensure it's a GET request
     if request.method == 'GET':
         # Get the wishlist items for the logged-in user
