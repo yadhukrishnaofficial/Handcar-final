@@ -1945,13 +1945,10 @@ def Logout(request):
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
-
-
-# 1. Add address view
+@csrf_exempt
 @api_view(['POST'])
 @authentication_classes([JWTAuthentication])
 @permission_classes([IsAuthenticated])
-@csrf_exempt  # Use @csrf_exempt if you're sending requests from React
 def add_address(request):
     if request.method == 'POST':
         try:
@@ -1981,16 +1978,17 @@ def add_address(request):
 
     return JsonResponse({'error': 'Only POST method is allowed'}, status=405)
 
-
-@login_required
 @csrf_exempt
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def view_addresses(request):
     if request.method == 'GET':
-        addresses = Address.objects.filter(user=request.user)
-
-        address_list = []
-        for address in addresses:
-            address_list.append({
+        try:
+            # Retrieve addresses with some optional filtering or ordering
+            addresses = Address.objects.filter(user=request.user).order_by('-is_default', '-id')
+            
+            address_list = [{
                 'id': address.id,
                 'street': address.street,
                 'city': address.city,
@@ -1998,15 +1996,24 @@ def view_addresses(request):
                 'zip_code': address.zip_code,
                 'country': address.country,
                 'is_default': address.is_default,
-            })
+            } for address in addresses]
+            
+            return JsonResponse({
+                'addresses': address_list,
+                'total_count': len(address_list)
+            }, status=200)
+        
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
 
-        return JsonResponse({'addresses': address_list})
-    else:
-        return JsonResponse({'Error':'Invalid request method'})
 
 
-@login_required
 @csrf_exempt
+@api_view(['PUT'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def set_default_address(request, address_id):
     try:
         # Get the address by ID from the URL
@@ -2025,6 +2032,9 @@ def set_default_address(request, address_id):
 # 4. Shipping address selection
 @login_required
 @csrf_exempt
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 def shipping_address(request):
     if request.method == 'GET':
         # Fetch all addresses for the logged-in user
@@ -2062,6 +2072,122 @@ def shipping_address(request):
             return JsonResponse({'error': 'Invalid JSON data'}, status=400)
 
     return JsonResponse({'error': 'Only POST or GET methods are allowed'}, status=405)
+
+# # 1. Add address view
+# @api_view(['POST'])
+# @authentication_classes([JWTAuthentication])
+# @permission_classes([IsAuthenticated])
+# @csrf_exempt  # Use @csrf_exempt if you're sending requests from React
+# def add_address(request):
+#     if request.method == 'POST':
+#         try:
+#             data = json.loads(request.body)  # Parse the incoming JSON data
+#             street = data.get('street')
+#             city = data.get('city')
+#             state = data.get('state')
+#             zip_code = data.get('zip_code')
+#             country = data.get('country')
+#             is_default = data.get('is_default', False)  # Default to False if not provided
+
+#             # Create a new address
+#             address = Address.objects.create(
+#                 user=request.user,
+#                 street=street,
+#                 city=city,
+#                 state=state,
+#                 zip_code=zip_code,
+#                 country=country,
+#                 is_default=is_default
+#             )
+
+#             return JsonResponse({'message': 'Address added successfully', 'address_id': address.id}, status=200)
+
+#         except json.JSONDecodeError:
+#             return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+
+#     return JsonResponse({'error': 'Only POST method is allowed'}, status=405)
+
+
+# @login_required
+# @csrf_exempt
+# def view_addresses(request):
+#     if request.method == 'GET':
+#         addresses = Address.objects.filter(user=request.user)
+
+#         address_list = []
+#         for address in addresses:
+#             address_list.append({
+#                 'id': address.id,
+#                 'street': address.street,
+#                 'city': address.city,
+#                 'state': address.state,
+#                 'zip_code': address.zip_code,
+#                 'country': address.country,
+#                 'is_default': address.is_default,
+#             })
+
+#         return JsonResponse({'addresses': address_list})
+#     else:
+#         return JsonResponse({'Error':'Invalid request method'})
+
+
+# @login_required
+# @csrf_exempt
+# def set_default_address(request, address_id):
+#     try:
+#         # Get the address by ID from the URL
+#         address = Address.objects.get(id=address_id, user=request.user)
+#     except Address.DoesNotExist:
+#         return JsonResponse({'error': 'Address not found'}, status=404)
+
+#     # Set the selected address as default
+#     Address.objects.filter(user=request.user).update(is_default=False)  # Unset other addresses
+#     address.is_default = True
+#     address.save()
+
+#     return JsonResponse({'message': 'Default address set successfully'}, status=200)
+
+
+# # 4. Shipping address selection
+# @login_required
+# @csrf_exempt
+# def shipping_address(request):
+#     if request.method == 'GET':
+#         # Fetch all addresses for the logged-in user
+#         addresses = Address.objects.filter(user=request.user)
+
+#         address_list = []
+#         for address in addresses:
+#             address_list.append({
+#                 'id': address.id,
+#                 'street': address.street,
+#                 'city': address.city,
+#                 'state': address.state,
+#                 'zip_code': address.zip_code,
+#                 'country': address.country,
+#                 'is_default': address.is_default,
+#             })
+
+#         return JsonResponse({'addresses': address_list})
+
+#     elif request.method == 'POST':
+#         try:
+#             data = json.loads(request.body)  # Get the selected address ID from the request
+#             address_id = data.get('address_id')
+
+#             # Try to fetch the selected address for shipping
+#             selected_address = Address.objects.get(id=address_id, user=request.user)
+
+#             # Process the selected address (e.g., store with the order)
+#             return JsonResponse({'message': 'Address selected for shipping', 'address_id': selected_address.id},
+#                                 status=200)
+
+#         except Address.DoesNotExist:
+#             return JsonResponse({'error': 'Address not found'}, status=404)
+#         except json.JSONDecodeError:
+#             return JsonResponse({'error': 'Invalid JSON data'}, status=400)
+
+#     return JsonResponse({'error': 'Only POST or GET methods are allowed'}, status=405)
 
 
 
