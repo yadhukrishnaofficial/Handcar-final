@@ -270,6 +270,9 @@ class AddToCartView(APIView):
 
 
 @csrf_exempt
+@api_view(['POST'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
 def add_to_wishlist(request, product_id):
     if request.method == 'POST':
         product = get_object_or_404(Product, id=product_id)
@@ -286,6 +289,9 @@ def add_to_wishlist(request, product_id):
 
 
 @login_required
+@api_view(['POST'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
 @csrf_exempt
 def wishlist_items(request):
     # Ensure it's a GET request
