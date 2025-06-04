@@ -289,7 +289,7 @@ def add_to_wishlist(request, product_id):
 
 
 @login_required
-@api_view(['POST'])
+@api_view(['GET'])
 @authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
 @csrf_exempt
