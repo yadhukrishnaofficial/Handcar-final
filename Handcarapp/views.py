@@ -1981,7 +1981,7 @@ def add_address(request):
 
 @csrf_exempt
 @api_view(['GET'])
-@authentication_classes([CustomJWTAuthentication])
+@authentication_classes([CustomJWTAuthentication, ])
 @permission_classes([IsAuthenticated])
 def view_addresses(request):
     if request.method == 'GET':
@@ -2013,7 +2013,7 @@ def view_addresses(request):
 
 @csrf_exempt
 @api_view(['PUT'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def set_default_address(request, address_id):
     try:
@@ -2034,7 +2034,7 @@ def set_default_address(request, address_id):
 @login_required
 @csrf_exempt
 @api_view(['GET'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def shipping_address(request):
     if request.method == 'GET':

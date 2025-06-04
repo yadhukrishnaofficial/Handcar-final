@@ -58,7 +58,6 @@
 #         except User.DoesNotExist:
 #             return None
 
-
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from django.conf import settings
@@ -66,11 +65,22 @@ from django.conf import settings
 class CustomJWTAuthentication(JWTAuthentication):
     def authenticate(self, request):
         """
-        Attempt to authenticate the user using a JWT stored in cookies.
+        Try to authenticate the request using JWT from cookie or Authorization header.
         """
-        raw_token = request.COOKIES.get(settings.SIMPLE_JWT['AUTH_COOKIE'])
+        # 1. Try to get token from cookie
+        raw_token = request.COOKIES.get(settings.SIMPLE_JWT.get('AUTH_COOKIE'))
+
+        # 2. If not found in cookie, try Authorization header (used by Flutter)
         if not raw_token:
-            return None  # Allows fallback to other authentication methods if any
+            header = self.get_header(request)
+            if header is None:
+                return None
+
+            raw_token = self.get_raw_token(header)
+
+        # 3. Validate the token
+        if raw_token is None:
+            return None
 
         try:
             validated_token = self.get_validated_token(raw_token)
@@ -83,7 +93,4 @@ class CustomJWTAuthentication(JWTAuthentication):
         return (user, validated_token)
 
     def authenticate_header(self, request):
-        """
-        Needed for returning 'WWW-Authenticate' header on 401 errors.
-        """
         return 'Bearer'
