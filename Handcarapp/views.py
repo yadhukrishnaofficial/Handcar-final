@@ -1948,7 +1948,9 @@ def Logout(request):
 
 
 # 1. Add address view
-@login_required
+@api_view(['POST'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
 @csrf_exempt  # Use @csrf_exempt if you're sending requests from React
 def add_address(request):
     if request.method == 'POST':
