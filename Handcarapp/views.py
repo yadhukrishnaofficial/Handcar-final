@@ -286,19 +286,17 @@ def add_to_wishlist(request, product_id):
 
     # If not a POST request, return a 405 Method Not Allowed
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+from rest_framework import status
+from rest_framework.response import Response
 
-
-@login_required
 @api_view(['GET'])
 @authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
-@csrf_exempt
 def get_wishlist_items(request):
-    # Ensure it's a GET request
-    if request.method == 'GET':
+    try:
         # Get the wishlist items for the logged-in user
         wishlist_items = WishlistItem.objects.filter(user=request.user)
-
+        
         # Prepare a list of wishlisted products
         response_data = []
         for item in wishlist_items:
@@ -307,18 +305,16 @@ def get_wishlist_items(request):
                 'id': item.id,
                 'product_name': product.name,
                 'product_price': product.price,
-                # 'product_image': product.image.url if product.image else None,
-                'product_image': product.image if product.image else None,
-
+                'product_image': product.image.url if product.image else None,
                 'product_description': product.description,
-                # Include other fields from the Product model as needed
+                # Include other fields as needed
             })
-
-        return JsonResponse({'wishlist_items': response_data})
-
-    return JsonResponse({'error': 'Invalid request method'}, status=400)
-
-
+        
+        return Response({'wishlist_items': response_data}, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 @csrf_exempt
 def product_search(request):
     query = request.GET.get('search')
