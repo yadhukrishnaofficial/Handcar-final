@@ -2060,6 +2060,7 @@ def shipping_address(request):
             })
 
         return JsonResponse({'addresses': address_list})
+    #
 
     elif request.method == 'POST':
         try:
