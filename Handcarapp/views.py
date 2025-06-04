@@ -1782,6 +1782,7 @@ def RefreshAccessToken(request):
 
     except TokenError as e:
         return JsonResponse({"error": str(e)}, status=401)
+    
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_logged_in_user(request):
@@ -1947,7 +1948,7 @@ def Logout(request):
 
 @csrf_exempt
 @api_view(['POST'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def add_address(request):
     if request.method == 'POST':
@@ -1980,7 +1981,7 @@ def add_address(request):
 
 @csrf_exempt
 @api_view(['GET'])
-@authentication_classes([JWTAuthentication])
+@authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def view_addresses(request):
     if request.method == 'GET':
