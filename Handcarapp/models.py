@@ -11,6 +11,7 @@ from django.contrib.auth.models import User
 from django.utils.timezone import now
 from rest_framework import serializers
 from django.utils import timezone
+import uuid
 
 
 class Category(models.Model):
@@ -295,3 +296,23 @@ class Service_Rating(models.Model):
         return f"{self.service.vendor_name} - {self.rating} stars"
 
 
+
+
+class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('success', 'Success'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    contact = models.CharField(max_length=20)
+    address = models.TextField()
+    order_id = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
+    products = models.TextField()  # Product summary text
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"{self.order_id} - {self.user.username}"

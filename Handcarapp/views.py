@@ -2039,8 +2039,8 @@ def set_default_address(request, address_id):
     Address.objects.filter(user=request.user).update(is_default=False)  # Unset other addresses
     address.is_default = True
     address.save()
-
     return JsonResponse({'message': 'Default address set successfully'}, status=200)
+
 
 @csrf_exempt
 @api_view(['DELETE'])
@@ -3209,45 +3209,6 @@ def change_vendor_password(request, vendor_id):
 
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
-
-@api_view(['POST'])
-@authentication_classes([CustomJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def place_order(request):
-    try:
-        user = request.user
-        cart_items = CartItem.objects.filter(user=user)
-
-        if not cart_items.exists():
-            return Response({'error': 'Cart is empty'}, status=400)
-
-        order_summary = []
-        for item in cart_items:
-            product = item.product
-            quantity = item.quantity
-
-            # Check and update stock
-            if product.stock >= quantity:
-                product.stock -= quantity
-                product.save()
-            else:
-                return Response({'error': f'Insufficient stock for {product.name}'}, status=400)
-
-            order_summary.append(f"{product.name} x{quantity}")
-
-        # Clear the cart
-        cart_items.delete()
-
-        # Generate WhatsApp message and URL
-        message = f"Hello, I want to place an order:\n" + "\n".join(order_summary)
-        whatsapp_number = '917356824950'  # Change to your WhatsApp number without + (e.g., '919876543210')
-        encoded_message = message.replace(' ', '%20').replace('\n', '%0A')
-        whatsapp_url = f"https://wa.me/{whatsapp_number}?text={encoded_message}"
-
-        return Response({'whatsapp_url': whatsapp_url}, status=200)
-
-    except Exception as e:
-        return Response({'error': str(e)}, status=500)
 
 
 def home(request):
