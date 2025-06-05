@@ -286,6 +286,8 @@ def add_to_wishlist(request, product_id):
 
     # If not a POST request, return a 405 Method Not Allowed
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
 from rest_framework import status
 from rest_framework.response import Response
 @api_view(['GET'])
@@ -310,6 +312,19 @@ def get_wishlist_items(request):
     
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+
+@api_view(['DELETE'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
+
+def remove_wishlist(request,product_id):
+    try:
+        Wishlist_item = WishlistItem.objects.get(user=request.user,product_id=product_id)
+        Wishlist_item.delete()
+        return Response({'message': 'Product removed from wishlist'}, status=status.HTTP_200_OK)
+    except WishlistItem.DoesNotExist:
+        return Response({'error': 'Product not found in wishlist'}, status=status.HTTP_404_NOT_FOUND)
 
 @csrf_exempt
 def product_search(request):
@@ -2026,6 +2041,22 @@ def set_default_address(request, address_id):
     address.save()
 
     return JsonResponse({'message': 'Default address set successfully'}, status=200)
+
+@csrf_exempt
+@api_view(['DELETE'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def delete_address(request, address_id):
+    try:
+        # Get the address by ID from the URL
+        address = Address.objects.get(id=address_id, user=request.user)
+    except Address.DoesNotExist:
+        return JsonResponse({'error': 'Address not found'}, status=404)
+
+    # Delete the address
+    address.delete()
+
+    return JsonResponse({'message': 'Address deleted successfully'}, status=200)
 
 
 # 4. Shipping address selection
