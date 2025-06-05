@@ -21,6 +21,9 @@ from twilio.rest import Client
 import random
 from django.core.cache import cache
 
+import uuid
+
+
 from .authentication import CustomJWTAuthentication
 from .models import Product, WishlistItem, CartItem, Review, Address, Category, Brand, Coupon, Plan, Subscriber, \
     Subscription, Services, ServiceCategory, ServiceImage, ServiceInteractionLog, Service_Rating
@@ -3209,6 +3212,93 @@ def change_vendor_password(request, vendor_id):
 
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
+import json
+import uuid
+from django.utils import timezone
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .models import Order, Product, CartItem
+from .authentication import CustomJWTAuthentication
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+@api_view(['POST'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def place_order(request):
+    try:
+        data = request.data
+        user = request.user
+        name = data.get('username')
+        contact = data.get('contact')
+        address = data.get('address')
+        cart_items = data.get('cartItems', [])
+        total_price = data.get('totalPrice')
+
+        if not cart_items:
+            return Response({'error': 'Cart is empty'}, status=400)
+
+        # Prepare product list and update stock
+        items = []
+        for item in cart_items:
+            product_id = item.get('id')
+            quantity = item.get('quantity')
+
+            try:
+                product = Product.objects.get(id=product_id)
+            except Product.DoesNotExist:
+                return Response({'error': f"Product with ID {product_id} not found"}, status=404)
+
+            if product.stock < quantity:
+                return Response({'error': f"Insufficient stock for {product.name}"}, status=400)
+
+            product.stock -= quantity
+            product.save()
+
+            items.append({
+                'id': product.id,
+                'name': product.name,
+                'price': str(product.price),
+                'quantity': quantity
+            })
+
+        # Generate unique order ID
+        order_id = str(uuid.uuid4()).replace('-', '')[:12].upper()
+
+        # Create Order
+        order = Order.objects.create(
+            user=user,
+            order_id=order_id,
+            name=name,
+            contact=contact,
+            address=address,
+            items=items,
+            total_price=total_price,
+            status='pending',
+            created_at=timezone.now()
+        )
+
+        # Clear the cart
+        CartItem.objects.filter(user=user).delete()
+
+        return Response({
+            'message': 'Order placed successfully',
+            'order_id': order_id,
+            'order_details': {
+                'name': name,
+                'contact': contact,
+                'address': address,
+                'items': items,
+                'total_price': total_price,
+                'status': 'pending',
+                'created_at': order.created_at
+            }
+        }, status=200)
+
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
 
 def home(request):
