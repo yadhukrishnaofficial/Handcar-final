@@ -305,6 +305,7 @@ def get_wishlist_items(request):
             product = item.product
             response_data.append({
                 'id': item.id,
+                'product_id': product.id,
                 'product_name': product.name,
                 'product_price': product.price,
                 'product_image': product.image if product.image else None,
