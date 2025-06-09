@@ -3301,6 +3301,63 @@ def place_order(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
+# @api_view(['GET'])
+# @authentication_classes([CustomJWTAuthentication])
+# @permission_classes([IsAuthenticated])
+# def my_order (request, order_id):
+#     try:
+#         order = Order.objects.get(user=request.user, order_id=order_id)
+#         return Response({
+#             'order_details': {
+#                 'name': order.name,
+#                 'contact': order.contact,
+#                 'address': order.address,
+#                 'items': json.loads(order.products),
+#                 'total_price': order.total_price,
+#                 'status': order.status,
+#                 'created_at': order.created_at
+#             }
+#         }, status=200)
+#     except Order.DoesNotExist:
+#         return Response({'error': 'Didnt ordered yet. Start ordering'}, status=404)
+
+@api_view(['GET'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def my_orders(request):
+    orders = Order.objects.filter(user=request.user).order_by('-created_at')
+    
+    order_list = []
+    for order in orders:
+        order_list.append({
+            'order_id': order.order_id,
+            'status': order.status,
+            'total_price': str(order.total_price),
+            'items': json.loads(order.products),
+            'created_at': order.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        })
+    
+    return Response({'orders': order_list}, status=200)
+
+
+@api_view(['PATCH'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAdminUser])
+def update_order_status(request, order_id):
+    try:
+        order = Order.objects.get(order_id=order_id)
+        new_status = request.data.get('status')
+
+        if new_status not in ['pending', 'success']:
+            return Response({'error': 'Invalid status'}, status=400)
+
+        order.status = new_status
+        order.save()
+
+        return Response({'message': f"Order status updated to {new_status}"}, status=200)
+    
+    except Order.DoesNotExist:
+        return Response({'error': 'Order not found'}, status=404)
 
 def home(request):
     return HttpResponse("Hi handcar")

@@ -128,7 +128,9 @@ urlpatterns = [
     path('RefreshAccessToken', views.RefreshAccessToken, name='RefreshAccessToken'),
     path('change_vendor_password', views.change_vendor_password, name='change_vendor_password'),
 
-    path('place_order', views.place_order, name='place_order')
+    path('place_order', views.place_order, name='place_order'),
+    path('my_orders', views.my_orders, name='my_orders'),
+    path('update_order_status', views.update_order_status, name='update_order_status'),
 
 ]
 
