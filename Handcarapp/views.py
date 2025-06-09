@@ -3274,7 +3274,7 @@ def place_order(request):
             name=name,
             contact=contact,
             address=address,
-            items=items,
+            products=json.dumps(items),
             total_price=total_price,
             status='pending',
             created_at=timezone.now()
