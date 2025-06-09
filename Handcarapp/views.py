@@ -3243,7 +3243,7 @@ def place_order(request):
         # Prepare product list and update stock
         items = []
         for item in cart_items:
-            product_id = item.get('id')
+            product_id = item.get('product_id')  # Fixed key
             quantity = item.get('quantity')
 
             try:
