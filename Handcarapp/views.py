@@ -322,9 +322,9 @@ def get_wishlist_items(request):
 @authentication_classes([CustomJWTAuthentication])
 @permission_classes([IsAuthenticated])
 
-def remove_wishlist(request,product_id):
+def remove_wishlist(request,wishlist_id):
     try:
-        Wishlist_item = WishlistItem.objects.get(user=request.user,product_id=product_id)
+        Wishlist_item = WishlistItem.objects.get(user=request.user,id=wishlist_id,)
         Wishlist_item.delete()
         return Response({'message': 'Product removed from wishlist'}, status=status.HTTP_200_OK)
     except WishlistItem.DoesNotExist:
