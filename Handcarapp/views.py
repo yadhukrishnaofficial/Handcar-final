@@ -3284,7 +3284,6 @@ def place_order(request):
             coupon=coupon,
             created_at=timezone.now()
         )
-
         # Clear the cart
         CartItem.objects.filter(user=user).delete()
 
@@ -3292,15 +3291,15 @@ def place_order(request):
             'message': 'Order placed successfully',
             'order_id': order_id,
             'order_details': {
-                'name': name,
-                'contact': contact,
-                'address': address,
-                'items': items,
-                'total_price': total_price,
-                'status': 'pending',
-                'created_at': order.created_at,
-                'coupon': order.coupon
-            }
+            'name': name,
+            'contact': contact,
+            'address': address,
+            'items': items,
+            'total_price': total_price,
+            'status': 'pending',
+            'created_at': order.created_at,
+            'coupon': json.loads(order.coupon) if order.coupon else None  
+             }
         }, status=200)
 
     except Exception as e:
