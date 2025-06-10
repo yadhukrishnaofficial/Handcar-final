@@ -583,7 +583,26 @@ def add_review(request, product_id):
 
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
+    
+@csrf_exempt
+def view_review(request, product_id):
+    if request.method == 'GET':
+        product = get_object_or_404(Product, id=product_id)
+        reviews = Review.objects.filter(product=product)
+        review_data = []
+        for review in reviews:
+            review_data.append({
+                'id': review.id,
+                'user': review.user.username,
+                'rating': review.rating,
+                'comment': review.comment,
+            })
+        return JsonResponse({'reviews': review_data}, status=200)
+    if not reviews.exists():
+        return JsonResponse({'message': 'No reviews for this product'}, status=200)
 
+    else:
+        return JsonResponse({'error': 'Invalid HTTP method.'}, status=405)
 
 @csrf_exempt
 def add_category(request):
