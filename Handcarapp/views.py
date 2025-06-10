@@ -548,8 +548,46 @@ class RemoveCartItemView(APIView):
         return Response({"message": "Item removed successfully"})
 
 
-@csrf_exempt
-@login_required
+# @csrf_exempt
+# @login_required
+# def add_review(request, product_id):
+#     product = get_object_or_404(Product, id=product_id)
+
+#     # Parse JSON data from the request body
+#     try:
+#         data = json.loads(request.body)
+#         rating = data.get('rating')
+#         comment = data.get('comment')
+
+#         # Validate that required fields are provided
+#         if rating is None or not isinstance(rating, int) or not (1 <= rating <= 5):
+#             return JsonResponse({'error': 'Rating must be an integer between 1 and 5.'}, status=400)
+
+#         # Optional comment validation if needed
+#         if comment and not isinstance(comment, str):
+#             return JsonResponse({'error': 'Comment must be a string.'}, status=400)
+
+#         # Attempt to create a new review
+#         try:
+#             review = Review.objects.create(
+#                 product=product,
+#                 user=request.user,
+#                 rating=rating,
+#                 comment=comment
+#             )
+#             return JsonResponse({'message': 'Review added successfully.', 'review_id': review.id}, status=201)
+
+#         except IntegrityError:
+#             return JsonResponse({'error': 'You have already reviewed this product. Please edit your existing review.'},
+#                                 status=400)
+
+#     except json.JSONDecodeError:
+#         return JsonResponse({'error': 'Invalid JSON data.'}, status=400)
+    
+
+@api_view(['POST'])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
 def add_review(request, product_id):
     product = get_object_or_404(Product, id=product_id)
 
