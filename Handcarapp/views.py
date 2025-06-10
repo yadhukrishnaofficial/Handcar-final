@@ -3235,7 +3235,9 @@ def place_order(request):
         name = data.get('username')
         contact = data.get('contact')
         address = data.get('address')
-        coupon = data.get('coupon')
+        coupon_data = data.get('coupon')
+        coupon = json.dumps(coupon_data) if coupon_data else None
+
         cart_items = data.get('cartItems', [])
         total_price = data.get('totalPrice')
 
