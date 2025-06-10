@@ -940,6 +940,7 @@ def edit_product(request, product_id):
 
         # Prepare the response data
         product_data = {
+            "id": product.id,
             "name": product.name,
             "category_name": product.category.name if product.category else None,
             "brand_name": product.brand.name if product.brand else None,
