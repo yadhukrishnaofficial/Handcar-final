@@ -3235,6 +3235,7 @@ def place_order(request):
         name = data.get('username')
         contact = data.get('contact')
         address = data.get('address')
+        coupon = data.get('coupon')
         cart_items = data.get('cartItems', [])
         total_price = data.get('totalPrice')
 
@@ -3278,6 +3279,7 @@ def place_order(request):
             products=json.dumps(items),
             total_price=total_price,
             status='pending',
+            coupon=coupon,
             created_at=timezone.now()
         )
 
@@ -3294,7 +3296,8 @@ def place_order(request):
                 'items': items,
                 'total_price': total_price,
                 'status': 'pending',
-                'created_at': order.created_at
+                'created_at': order.created_at,
+                'coupon': order.coupon
             }
         }, status=200)
 
