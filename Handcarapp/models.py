@@ -310,9 +310,9 @@ class Order(models.Model):
     address = models.TextField()
     order_id = models.CharField(max_length=100, unique=True, default=uuid.uuid4)
     products = models.TextField()  # Product summary text
-    coupon = models.TextField(blank=True, null=True, default=None)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    coupon = models.TextField(blank=True, null=True, default=None)
     created_at = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
