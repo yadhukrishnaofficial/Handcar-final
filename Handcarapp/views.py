@@ -3421,5 +3421,22 @@ def update_order_status(request, order_id):
     except Order.DoesNotExist:
         return Response({'error': 'Order not found'}, status=404)
 
+def promoted_brands_products(request):
+    if request.method == 'GET':
+        promoted_brands = Brand.objects.filter(promoted=True)
+        brands_products = Product.objects.filter(brand__in=promoted_brands)
+        product_list = [
+            {
+                "id": product.id,
+                "name": product.name,
+                "price": product.price,
+                "image": product.image.url if product.image else None
+            }
+                for product in brands_products
+        ]
+        
+        return JsonResponse({"promoted_brands_products": product_list}, status=200)
+    return JsonResponse({"error": "Inavalid HTTP method."}, status=405)
+
 def home(request):
     return HttpResponse("Hi handcar")
