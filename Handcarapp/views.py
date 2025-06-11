@@ -3430,13 +3430,13 @@ def promoted_brands_products(request):
                 "id": product.id,
                 "name": product.name,
                 "price": product.price,
-                "image": product.image.url if product.image else None
+                "image": product.image.url if product.image and hasattr(product.image, 'url') else None
             }
                 for product in brands_products
         ]
         
         return JsonResponse({"promoted_brands_products": product_list}, status=200)
-    return JsonResponse({"error": "Inavalid HTTP method."}, status=405)
+    return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
 def home(request):
     return HttpResponse("Hi handcar")
