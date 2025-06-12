@@ -1989,7 +1989,7 @@ def Vendor_Profile(request):
                 'service_category': vendor.service_category.name if vendor.service_category else None,
                 'service_details': vendor.service_details,
                 'rate': vendor.rate,
-                'image': vendor.image,
+                'image': vendor.image.url if vendor.image else None,
                 'created_at': vendor.created_at,
                 'updated_at': vendor.updated_at
             })
@@ -3454,6 +3454,7 @@ def get_all_orders(request):
                 'status': order.status,
                 'total_price': str(order.total_price),
                 'items': json.loads(order.products),
+                'coupon' : json.loads(order.coupon),
                 'created_at': order.created_at.strftime("%Y-%m-%d %H:%M:%S")
             })
         return JsonResponse({"orders": order_list}, status=200)
@@ -3495,7 +3496,6 @@ def get_nearby_vendor_on_add_subscription(request):
             return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
-
-
+    
 def home(request):
     return HttpResponse("Hi handcar")

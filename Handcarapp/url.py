@@ -127,7 +127,7 @@ urlpatterns = [
     path('Admin_Profile', views.Admin_Profile, name='Admin_Profile'),
 
     path('RefreshAccessToken', views.RefreshAccessToken, name='RefreshAccessToken'),
-    path('change_vendor_password', views.change_vendor_password, name='change_vendor_password'),
+    path('change_vendor_password/<int:vendor_id>/', views.change_vendor_password, name='change_vendor_password'),
 
     path('place_order', views.place_order, name='place_order'),
     path('my_orders', views.my_orders, name='my_orders'),
