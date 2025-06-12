@@ -3395,6 +3395,7 @@ def my_orders(request):
             'order_id': order.order_id,
             'status': order.status,
             'total_price': str(order.total_price),
+            'coupon': json.loads(order.coupon) if order.coupon else None,
             'items': json.loads(order.products),
             'created_at': order.created_at.strftime("%Y-%m-%d %H:%M:%S")
         })
