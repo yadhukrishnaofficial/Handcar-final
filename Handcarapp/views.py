@@ -3402,6 +3402,11 @@ def my_orders(request):
     
     return Response({'orders': order_list}, status=200)
 
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAdminUser
+from rest_framework.response import Response
+from .models import Order
+from .authentication import CustomJWTAuthentication  # adjust the import path if needed
 
 @api_view(['PATCH'])
 @authentication_classes([CustomJWTAuthentication])
@@ -3411,16 +3416,20 @@ def update_order_status(request, order_id):
         order = Order.objects.get(order_id=order_id)
         new_status = request.data.get('status')
 
-        if new_status not in ['pending', 'success']:
-            return Response({'error': 'Invalid status'}, status=400)
+        # Fetch valid statuses from the model choices
+        valid_statuses = [status[0] for status in Order.STATUS_CHOICES]
+
+        if new_status not in valid_statuses:
+            return Response({'error': f"Invalid status. Valid options are: {', '.join(valid_statuses)}"}, status=400)
 
         order.status = new_status
         order.save()
 
-        return Response({'message': f"Order status updated to {new_status}"}, status=200)
-    
+        return Response({'message': f"Order status updated to '{new_status}'"}, status=200)
+
     except Order.DoesNotExist:
         return Response({'error': 'Order not found'}, status=404)
+
 
 def promoted_brands_products(request):
     if request.method == 'GET':

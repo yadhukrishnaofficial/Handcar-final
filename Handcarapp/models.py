@@ -301,7 +301,9 @@ class Service_Rating(models.Model):
 class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
-        ('success', 'Success'),
+        ('confirmed', 'Confirmed'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
     ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE)

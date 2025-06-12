@@ -131,7 +131,7 @@ urlpatterns = [
 
     path('place_order', views.place_order, name='place_order'),
     path('my_orders', views.my_orders, name='my_orders'),
-    path('update_order_status/<int:order_id>/', views.update_order_status, name='update_order_status'),
+    path('update_order_status/<str:order_id>/', views.update_order_status, name='update_order_status'),
     path('promoted_brands_products', views.promoted_brands_products, name='promoted_brands_products'),
     path('get_all_orders', views.get_all_orders, name='get_all_orders'),
     path('get_nearby_vendor_on_add_subscription', views.get_nearby_vendor_on_add_subscription, name='get_nearby_vendor_on_add_subscription'),
