@@ -3450,7 +3450,7 @@ def get_all_orders(request):
                     'order_id': order.order_id,
                     'name': order.name,
                     'contact': order.contact,
-                    'address': order.address,
+                    'address': json.loads(order.address) if order.address else None,
                     'status': order.status,
                     'total_price': str(order.total_price),
                     'items': json.loads(order.products),
