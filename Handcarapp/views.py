@@ -1651,6 +1651,24 @@ def add_subscriber(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+def view_subscribers(request):
+    if request.method == 'GET':
+        search_query = request.GET.get('search', '')
+        if search_query:
+            subscriber = Subscriber.objects.filter(name__icontains=search_query)
+        else:
+            subscriber = Subscriber.objects.all()
+        data = [{  "id": subscribers.id,
+                    "email": subscribers.email,
+                    "address": subscribers.address,
+                    "service_type": subscribers.service_type,
+                    "plan": subscribers.plan,
+                    "duration": subscribers.duration,
+                    "start_date": subscribers.start_date,
+                    "end_date": subscribers.end_date,
+                    "assigned_vendor": subscribers.assigned_vendor} for subscribers in subscriber]
+        return JsonResponse({"user": data}, safe=False)
+
 
 @csrf_exempt
 @api_view(['GET'])
