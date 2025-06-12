@@ -1590,6 +1590,7 @@ def send_vendor_notification(vendor_id, message):
             'message': message,  # Notification message
         }
     )
+    
 @csrf_exempt
 def add_subscriber(request):
     try:
@@ -3437,6 +3438,64 @@ def promoted_brands_products(request):
         
         return JsonResponse({"promoted_brands_products": product_list}, status=200)
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+
+
+@csrf_exempt
+def get_all_orders(request):
+    if request.method == 'GET':
+        orders = Order.objects.all().order_by('-created_at')
+        order_list = []
+        for order in orders:
+            order_list.append({
+                'order_id': order.order_id,
+                'name': order.name,
+                'contact': order.contact,
+                'address': order.address,
+                'status': order.status,
+                'total_price': str(order.total_price),
+                'items': json.loads(order.products),
+                'created_at': order.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            })
+        return JsonResponse({"orders": order_list}, status=200)
+    return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+
+
+@csrf_exempt
+def get_nearby_vendor_on_add_subscription(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            address = data.get('address')
+
+            if not address:
+                return JsonResponse({'error': 'Address is required for geocoding.'}, status=400)
+
+            # Get latitude and longitude from address
+            subscriber_lat, subscriber_lon = get_geocoded_location(address)
+
+            # Find nearby vendors
+            nearby_vendors = get_nearby_vendors(subscriber_lat, subscriber_lon)
+
+            if not nearby_vendors:
+                return JsonResponse({'nearby_vendors': [], 'message': 'No nearby vendors found.'}, status=200)
+
+            vendor_data = [
+                {
+                    'name': vendor.name
+                    # Add more vendor fields if needed
+                }
+                for vendor in nearby_vendors
+            ]
+
+            return JsonResponse({'nearby_vendors': vendor_data}, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON.'}, status=400)
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    else:
+        return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
+
 
 def home(request):
     return HttpResponse("Hi handcar")
