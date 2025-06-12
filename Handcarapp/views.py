@@ -3439,29 +3439,53 @@ def promoted_brands_products(request):
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
 
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json
+from .models import Order
+
 @csrf_exempt
 def get_all_orders(request):
     if request.method == 'GET':
-        orders = Order.objects.all().order_by('-created_at')
         try:
+            orders = Order.objects.all().order_by('-created_at')
             order_list = []
+
             for order in orders:
+                try:
+                    address = json.loads(order.address) if order.address else None
+                except json.JSONDecodeError:
+                    address = order.address  # fallback to string
+
+                try:
+                    items = json.loads(order.products)
+                except json.JSONDecodeError:
+                    items = []
+
+                try:
+                    coupon = json.loads(order.coupon) if order.coupon else None
+                except json.JSONDecodeError:
+                    coupon = None
+
                 order_list.append({
                     'order_id': order.order_id,
                     'name': order.name,
                     'contact': order.contact,
-                    'address': json.loads(order.address) if order.address else None,
+                    'address': address,
                     'status': order.status,
                     'total_price': str(order.total_price),
-                    'items': json.loads(order.products),
-                    'coupon': json.loads(order.coupon) if order.coupon else None,
+                    'items': items,
+                    'coupon': coupon,
                     'created_at': order.created_at.strftime("%Y-%m-%d %H:%M:%S")
                 })
+
             return JsonResponse({"orders": order_list}, status=200)
+
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-    
+            return JsonResponse({"error": str(e)}, status=500)
+
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+
 
 
 @csrf_exempt
@@ -3499,6 +3523,40 @@ def get_nearby_vendor_on_add_subscription(request):
             return JsonResponse({'error': str(e)}, status=500)
     else:
         return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
+
+from django.views.decorators.csrf import csrf_exempt
+from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
+from .models import Services, Subscriber
+
+@csrf_exempt
+def get_vendor_subscribers(request, vendor_id):
+    if request.method == 'GET':
+        try:
+            # Get vendor
+            vendor = get_object_or_404(Services, id=vendor_id)
+
+            # Fetch all subscribers where assigned_vendor matches vendor name
+            subscribers = Subscriber.objects.filter(assigned_vendor=vendor.vendor_name)
+
+            subscriber_data = []
+            for sub in subscribers:
+                subscriber_data.append({
+                    'email': sub.email,
+                    'address': sub.address,
+                    'service_type': sub.service_type,
+                    'plan': sub.plan,
+                    'start_date': sub.start_date.strftime('%Y-%m-%d'),
+                    'end_date': sub.end_date.strftime('%Y-%m-%d') if sub.end_date else None
+                })
+
+            return JsonResponse({'subscribers': subscriber_data}, status=200)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
+
     
 def home(request):
     return HttpResponse("Hi handcar")
