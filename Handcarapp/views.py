@@ -3239,8 +3239,7 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
-from django.contrib.auth.hashers import check_password
-
+from django.contrib.auth.hashers import check_password, make_password
 @csrf_exempt
 def change_vendor_password(request, vendor_id):
     if request.method == 'POST':
@@ -3261,8 +3260,8 @@ def change_vendor_password(request, vendor_id):
             if not check_password(old_password, vendor.password):
                 return JsonResponse({"error": "Old password is incorrect."}, status=401)
 
-            # Update password securely
-            vendor.set_password(new_password)
+            # Hash the new password and update it
+            vendor.password = make_password(new_password)
             vendor.save()
 
             return JsonResponse({"message": "Password updated successfully."}, status=200)
@@ -3444,20 +3443,24 @@ def promoted_brands_products(request):
 def get_all_orders(request):
     if request.method == 'GET':
         orders = Order.objects.all().order_by('-created_at')
-        order_list = []
-        for order in orders:
-            order_list.append({
-                'order_id': order.order_id,
-                'name': order.name,
-                'contact': order.contact,
-                'address': order.address,
-                'status': order.status,
-                'total_price': str(order.total_price),
-                'items': json.loads(order.products),
-                'coupon' : json.loads(order.coupon),
-                'created_at': order.created_at.strftime("%Y-%m-%d %H:%M:%S")
-            })
-        return JsonResponse({"orders": order_list}, status=200)
+        try:
+            order_list = []
+            for order in orders:
+                order_list.append({
+                    'order_id': order.order_id,
+                    'name': order.name,
+                    'contact': order.contact,
+                    'address': order.address,
+                    'status': order.status,
+                    'total_price': str(order.total_price),
+                    'items': json.loads(order.products),
+                    'coupon': json.loads(order.coupon) if order.coupon else None,
+                    'created_at': order.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                })
+            return JsonResponse({"orders": order_list}, status=200)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+    
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
 
