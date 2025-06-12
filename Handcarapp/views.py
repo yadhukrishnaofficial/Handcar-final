@@ -330,33 +330,11 @@ def remove_wishlist(request,wishlist_id):
     except WishlistItem.DoesNotExist:
         return Response({'error': 'Product not found in wishlist'}, status=status.HTTP_404_NOT_FOUND)
 
-@csrf_exempt
-def product_search(request):
-    query = request.GET.get('search')
-    accessories = Product.objects.all()
-
-    if query:
-        accessories = accessories.filter(name__icontains=query)  # Filter by name, case-insensitive
-
-    # Prepare data for JSON response
-    accessories_data = [
-        {
-            'id': accessory.id,
-            'name': accessory.name,
-            'price': accessory.price,
-            'brand': accessory.brand.name,  # Get the brand name instead of the brand object
-            'image_url': accessory.image.url if accessory.image and hasattr(accessory.image, 'url') else None,
-            'description': accessory.description,
-        }
-        for accessory in accessories
-    ]
-
-    return JsonResponse({'accessories': accessories_data, 'query': query})
-
-
 def filter_by_category(queryset, category_id):
     return queryset.filter(category_id=category_id)
 
+def filter_by_brand(queryset, brand_id):
+    return queryset.filter(brand_id=brand_id)
 
 def filter_by_aed(queryset, min_price=None, max_price=None):
     if min_price is not None:
@@ -365,11 +343,6 @@ def filter_by_aed(queryset, min_price=None, max_price=None):
         queryset = queryset.filter(price__lte=max_price)
     return queryset
 
-
-def filter_by_brand(queryset, brand_id):
-    return queryset.filter(brand_id=brand_id)
-
-
 from django.utils import timezone
 from datetime import timedelta
 
@@ -377,55 +350,70 @@ def filter_by_new_arrivals(queryset, days=30):
     recent_date = timezone.now() - timedelta(days=days)
     return queryset.filter(created_at__gte=recent_date)
 
-
 def filter_by_rating(queryset, min_rating):
     return queryset.filter(rating__gte=min_rating)
 
 @csrf_exempt
-def filter_products(request):
+def filter_and_search_products(request):
     products = Product.objects.all()
 
-    # Get filter parameters from request
+    # Get filter parameters
+    search_query = request.GET.get('search')
     category_id = request.GET.get('category_id')
+    brand_id = request.GET.get('brand_id')
     min_price = request.GET.get('min_price')
     max_price = request.GET.get('max_price')
-    brand_id = request.GET.get('brand_id')
     min_rating = request.GET.get('min_rating')
-    new_arrivals = request.GET.get('new_arrivals')  # Expects something like 'true'
+    new_arrivals = request.GET.get('new_arrivals')
+    sort_by = request.GET.get('sort_by')  # Optional: 'price', '-price', 'rating', '-rating'
 
-    # Apply filters
-    if category_id:
-        products = filter_by_category(products, category_id)
+    # Apply search by name
+    if search_query:
+        products = products.filter(name__icontains=search_query)
 
-    if min_price or max_price:
-        products = filter_by_aed(products, min_price=min_price, max_price=max_price)
+    # Apply filters safely
+    if category_id and category_id.isdigit():
+        products = filter_by_category(products, int(category_id))
 
-    if brand_id:
-        products = filter_by_brand(products, brand_id)
+    if brand_id and brand_id.isdigit():
+        products = filter_by_brand(products, int(brand_id))
 
-    if min_rating:
-        products = filter_by_rating(products, min_rating)
+    try:
+        if min_price or max_price:
+            min_val = float(min_price) if min_price else None
+            max_val = float(max_price) if max_price else None
+            products = filter_by_aed(products, min_val, max_val)
+    except ValueError:
+        pass  # Ignore price filter if invalid
 
-    if new_arrivals == 'true':  # Check if new arrivals filter is requested
+    try:
+        if min_rating:
+            products = filter_by_rating(products, float(min_rating))
+    except ValueError:
+        pass
+
+    if new_arrivals == 'true':
         products = filter_by_new_arrivals(products)
 
-    # Prepare data for JSON response
-    products_data = [
+    # Apply sorting if provided
+    if sort_by in ['price', '-price', 'rating', '-rating', 'created_at', '-created_at']:
+        products = products.order_by(sort_by)
+
+    # Prepare response
+    product_data = [
         {
             'id': product.id,
             'name': product.name,
             'price': product.price,
             'brand': product.brand.name,
-            'image_url': product.image.url if product.image else None,
+            'image_url': product.image.url if product.image and hasattr(product.image, 'url') else None,
             'description': product.description,
             'rating': product.rating,
         }
         for product in products
     ]
 
-    return JsonResponse({'products': products_data})
-
-
+    return JsonResponse({'products': product_data})
 
 
 
@@ -1590,7 +1578,7 @@ def send_vendor_notification(vendor_id, message):
             'message': message,  # Notification message
         }
     )
-    
+  
 @csrf_exempt
 def add_subscriber(request):
     try:
@@ -1601,14 +1589,14 @@ def add_subscriber(request):
         service_type = data.get('service_type')
         plan = data.get('plan')
         duration = data.get('duration')
-        assigned_vendor = data.get('assigned_vendor')
+        assigned_vendor_id = data.get('assigned_vendor')  # ID instead of name
         start_date = data.get('start_date')
 
-        # Validate email
+        # Validate user
         if not User.objects.filter(email=email).exists():
             return JsonResponse({'error': 'No such user registered.'}, status=400)
 
-        # Validate and parse start_date
+        # Parse date
         if start_date:
             try:
                 start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
@@ -1623,61 +1611,45 @@ def add_subscriber(request):
         except (ValueError, TypeError):
             return JsonResponse({'error': 'Duration must be an integer.'}, status=400)
 
-        # Geocode subscriber address to get latitude and longitude
+        # Geocode address
         if address:
             subscriber_lat, subscriber_lon = get_geocoded_location(address)
         else:
             return JsonResponse({'error': 'Address is required for geocoding.'}, status=400)
 
-        # Get nearby vendors
-        nearby_vendors = get_nearby_vendors(subscriber_lat, subscriber_lon)
-
-        if not nearby_vendors:
-            return JsonResponse({'error': 'No nearby vendors found.'}, status=404)
+        # Check if vendor exists
+        try:
+            assigned_vendor = Services.objects.get(id=assigned_vendor_id)
+        except Services.DoesNotExist:
+            return JsonResponse({'error': 'Assigned vendor not found.'}, status=404)
 
         # Save subscriber
-        subscriber = Subscriber(
+        subscriber = Subscriber.objects.create(
             email=email,
             address=address,
             service_type=service_type,
             plan=plan,
             duration=duration,
-            assigned_vendor=assigned_vendor,
             start_date=start_date,
             latitude=subscriber_lat,
             longitude=subscriber_lon,
+            assigned_vendor=assigned_vendor.vendor_name  # storing name
         )
-        subscriber.save()
 
-        # Send a notification to the assigned vendor
-        send_vendor_notification(assigned_vendor, f'You have a new subscriber assigned. Subscriber details: {subscriber.email}')
+        # Optional: Send notification
+        send_vendor_notification(assigned_vendor.vendor_name, f'You have a new subscriber: {subscriber.email}')
 
-        return JsonResponse({'message': 'Subscriber added successfully.', 'assigned_vendor': assigned_vendor, 'end_date': subscriber.end_date, 'nearby_vendors': nearby_vendors}, status=201)
+        return JsonResponse({
+            'message': 'Subscriber added successfully.',
+            'assigned_vendor': assigned_vendor.vendor_name,
+            'end_date': subscriber.end_date
+        }, status=201)
 
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON.'}, status=400)
-    except ValueError as e:
-        return JsonResponse({'error': str(e)}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-def view_subscribers(request):
-    if request.method == 'GET':
-        search_query = request.GET.get('search', '')
-        if search_query:
-            subscriber = Subscriber.objects.filter(name__icontains=search_query)
-        else:
-            subscriber = Subscriber.objects.all()
-        data = [{  "id": subscribers.id,
-                    "email": subscribers.email,
-                    "address": subscribers.address,
-                    "service_type": subscribers.service_type,
-                    "plan": subscribers.plan,
-                    "duration": subscribers.duration,
-                    "start_date": subscribers.start_date,
-                    "end_date": subscribers.end_date,
-                    "assigned_vendor": subscribers.assigned_vendor} for subscribers in subscriber]
-        return JsonResponse({"user": data}, safe=False)
 
 
 @csrf_exempt
@@ -3497,7 +3469,6 @@ def get_all_orders(request):
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
 
-
 @csrf_exempt
 def get_nearby_vendor_on_add_subscription(request):
     if request.method == 'POST':
@@ -3508,7 +3479,7 @@ def get_nearby_vendor_on_add_subscription(request):
             if not address:
                 return JsonResponse({'error': 'Address is required for geocoding.'}, status=400)
 
-            # Get latitude and longitude from address
+            # Get coordinates from address
             subscriber_lat, subscriber_lon = get_geocoded_location(address)
 
             # Find nearby vendors
@@ -3517,10 +3488,13 @@ def get_nearby_vendor_on_add_subscription(request):
             if not nearby_vendors:
                 return JsonResponse({'nearby_vendors': [], 'message': 'No nearby vendors found.'}, status=200)
 
+            # Return useful vendor data
             vendor_data = [
                 {
-                    'name': vendor.name
-                    # Add more vendor fields if needed
+                    'id': vendor.id,
+                    'name': vendor.vendor_name,
+                    'latitude': vendor.latitude,
+                    'longitude': vendor.longitude
                 }
                 for vendor in nearby_vendors
             ]
@@ -3531,8 +3505,8 @@ def get_nearby_vendor_on_add_subscription(request):
             return JsonResponse({'error': 'Invalid JSON.'}, status=400)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
-    else:
-        return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
+    return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
+
 
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
@@ -3570,3 +3544,5 @@ def get_vendor_subscribers(request, vendor_id):
     
 def home(request):
     return HttpResponse("Hi handcar")
+
+    
