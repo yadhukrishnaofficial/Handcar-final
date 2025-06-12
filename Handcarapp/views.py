@@ -1979,7 +1979,7 @@ def Vendor_Profile(request):
                 'service_category': vendor.service_category.name if vendor.service_category else None,
                 'service_details': vendor.service_details,
                 'rate': vendor.rate,
-                'image': vendor.image.url if vendor.image else None,
+                'image': vendor.image if vendor.image else None,
                 'created_at': vendor.created_at,
                 'updated_at': vendor.updated_at
             })
@@ -3224,42 +3224,49 @@ def reset_password(request, uidb64, token):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.hashers import check_password, make_password
+from .models import Services  # Make sure this import is correct
+
 @csrf_exempt
 def change_vendor_password(request, vendor_id):
     if request.method == 'POST':
         try:
-            # Retrieve the vendor
             vendor = get_object_or_404(Services, id=vendor_id)
 
-            # Parse JSON data
+            # Parse JSON input
             data = json.loads(request.body.decode('utf-8'))
             old_password = data.get('old_password')
             new_password = data.get('new_password')
 
-            # Validate input
+            # Input validation
             if not old_password or not new_password:
                 return JsonResponse({"error": "Both old and new passwords are required."}, status=400)
 
-            # Check if the old password is correct
+            # Check if vendor password is hashed
+            if not vendor.password.startswith('pbkdf2_'):
+                return JsonResponse({"error": "Vendor password is not hashed. Please contact support."}, status=400)
+
+            # Verify old password
             if not check_password(old_password, vendor.password):
                 return JsonResponse({"error": "Old password is incorrect."}, status=401)
 
-            # Hash the new password and update it
+            # Hash and save new password
             vendor.password = make_password(new_password)
             vendor.save()
 
             return JsonResponse({"message": "Password updated successfully."}, status=200)
 
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data."}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+
 
 import json
 import uuid
@@ -3442,20 +3449,31 @@ def promoted_brands_products(request):
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 import json
+from django.db.models import Q
 from .models import Order
 
 @csrf_exempt
 def get_all_orders(request):
     if request.method == 'GET':
         try:
-            orders = Order.objects.all().order_by('-created_at')
+            search_query = request.GET.get('search', '').strip()
+
+            if search_query:
+                orders = Order.objects.filter(
+                    Q(order_id__icontains=search_query) |
+                    Q(name__icontains=search_query) |
+                    Q(contact__icontains=search_query)
+                ).order_by('-created_at')
+            else:
+                orders = Order.objects.all().order_by('-created_at')
+
             order_list = []
 
             for order in orders:
                 try:
                     address = json.loads(order.address) if order.address else None
                 except json.JSONDecodeError:
-                    address = order.address  # fallback to string
+                    address = order.address
 
                 try:
                     items = json.loads(order.products)
