@@ -155,7 +155,7 @@ def login_with_otp(request):
     return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
-
+from django.db.models import Q
 
 @csrf_exempt
 def view_products(request):
@@ -175,11 +175,11 @@ def view_products(request):
 
         # Filter by category
         if category:
-            products = products.filter(category_name_icontains=category)
+            products = products.filter(Q(category__name__icontains=category))
 
         # Filter by brand
         if brand:
-            products = products.filter(brand_name_icontains=brand)
+            products = products.filter(Q(brand__name__icontains=brand))
 
         # Filter by price range
         if min_price:
@@ -198,8 +198,8 @@ def view_products(request):
             {
                 "id": product.id,
                 "name": product.name,
-                "category": product.category.name,
-                "brand": product.brand.name,
+                "category": product.category.name if product.category else None,
+                "brand": product.brand.name if product.brand else None,
                 "price": product.price,
                 "stock": product.stock,
                 "image": product.image if product.image else None,
