@@ -330,6 +330,11 @@ def remove_wishlist(request,wishlist_id):
     except WishlistItem.DoesNotExist:
         return Response({'error': 'Product not found in wishlist'}, status=status.HTTP_404_NOT_FOUND)
 
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from datetime import timedelta
+
 def filter_by_category(queryset, category_id):
     return queryset.filter(category_id=category_id)
 
@@ -342,9 +347,6 @@ def filter_by_aed(queryset, min_price=None, max_price=None):
     if max_price is not None:
         queryset = queryset.filter(price__lte=max_price)
     return queryset
-
-from django.utils import timezone
-from datetime import timedelta
 
 def filter_by_new_arrivals(queryset, days=30):
     recent_date = timezone.now() - timedelta(days=days)
@@ -365,7 +367,7 @@ def filter_and_search_products(request):
     max_price = request.GET.get('max_price')
     min_rating = request.GET.get('min_rating')
     new_arrivals = request.GET.get('new_arrivals')
-    sort_by = request.GET.get('sort_by')  # Optional: 'price', '-price', 'rating', '-rating'
+    sort_by = request.GET.get('sort_by')
 
     # Apply search by name
     if search_query:
@@ -378,18 +380,19 @@ def filter_and_search_products(request):
     if brand_id and brand_id.isdigit():
         products = filter_by_brand(products, int(brand_id))
 
+    # Fixed price filter logic
     try:
-        if min_price or max_price:
-            min_val = float(min_price) if min_price else None
-            max_val = float(max_price) if max_price else None
+        min_val = float(min_price) if min_price else None
+        max_val = float(max_price) if max_price else None
+        if min_val is not None or max_val is not None:
             products = filter_by_aed(products, min_val, max_val)
-    except ValueError:
+    except (ValueError, TypeError):
         pass  # Ignore price filter if invalid
 
     try:
         if min_rating:
             products = filter_by_rating(products, float(min_rating))
-    except ValueError:
+    except (ValueError, TypeError):
         pass
 
     if new_arrivals == 'true':
@@ -399,23 +402,21 @@ def filter_and_search_products(request):
     if sort_by in ['price', '-price', 'rating', '-rating', 'created_at', '-created_at']:
         products = products.order_by(sort_by)
 
-    # Prepare response
-    product_data = [
-        {
+    # Prepare response - Fixed potential attribute errors
+    product_data = []
+    for product in products:
+        product_info = {
             'id': product.id,
             'name': product.name,
             'price': product.price,
-            'brand': product.brand.name,
+            'brand': product.brand.name if product.brand else None,
             'image_url': product.image.url if product.image and hasattr(product.image, 'url') else None,
             'description': product.description,
             'rating': product.rating,
         }
-        for product in products
-    ]
+        product_data.append(product_info)
 
     return JsonResponse({'products': product_data})
-
-
 
 import logging
 from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
@@ -619,7 +620,7 @@ def view_review(request, product_id):
         for review in reviews:
             review_data.append({
                 'id': review.id,
-                'user': review.user.username,
+                'user': review.user.first_name,
                 'rating': review.rating,
                 'comment': review.comment,
             })
@@ -1629,14 +1630,7 @@ def add_subscriber(request):
             assigned_vendor=assigned_vendor
         )
 
-        send_vendor_notification(assigned_vendor.vendor_name, f"New subscriber: {subscriber.email}")
-
-        return JsonResponse({
-            'message': 'Subscriber added successfully.',
-            'assigned_vendor': assigned_vendor.vendor_name,
-            'end_date': subscriber.end_date
-        }, status=201)
-
+        return JsonResponse({'message': 'Subscriber added successfully.', 'id': subscriber.id}, status=200)
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON.'}, status=400)
     except Exception as e:
