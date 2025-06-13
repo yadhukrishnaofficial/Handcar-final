@@ -3505,36 +3505,45 @@ def get_all_orders(request):
 
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
+
 @csrf_exempt
-def get_vendor_subscribers(request):
+def get_nearby_vendor_on_add_subscription(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            vendor_name = data.get('vendor_name')
+            address = data.get('address')
 
-            if not vendor_name:
-                return JsonResponse({'error': 'vendor_name is required'}, status=400)
+            if not address:
+                return JsonResponse({'error': 'Address is required for geocoding.'}, status=400)
 
-            # Use vendor name directly
-            subscribers = Subscriber.objects.filter(assigned_vendor=vendor_name)
+            # Get coordinates from address
+            subscriber_lat, subscriber_lon = get_geocoded_location(address)
 
-            subscriber_data = []
-            for sub in subscribers:
-                subscriber_data.append({
-                    'email': sub.email,
-                    'address': sub.address,
-                    'service_type': sub.service_type,
-                    'plan': sub.plan,
-                    'start_date': sub.start_date.strftime('%Y-%m-%d'),
-                    'end_date': sub.end_date.strftime('%Y-%m-%d') if sub.end_date else None
-                })
+            # Find nearby vendors
+            nearby_vendors = get_nearby_vendors(subscriber_lat, subscriber_lon)
 
-            return JsonResponse({'subscribers': subscriber_data}, status=200)
+            if not nearby_vendors:
+                return JsonResponse({'nearby_vendors': [], 'message': 'No nearby vendors found.'}, status=200)
 
+            # Return useful vendor data
+            vendor_data = [
+                {
+                    
+                    'name': vendor.vendor_name,
+                    'latitude': vendor.latitude,
+                    'longitude': vendor.longitude
+                }
+                for vendor in nearby_vendors
+            ]
+
+            return JsonResponse({'nearby_vendors': vendor_data}, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON.'}, status=400)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=500)
+    return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
 
-    return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
 
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import get_object_or_404
