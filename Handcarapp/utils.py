@@ -46,23 +46,14 @@ def get_geocoded_location(address):
 
 
 def get_nearby_vendors(subscriber_lat, subscriber_lon):
-    # Import inside the function to avoid circular import
-    from .models import Services  # Move this import inside the function
-
-    # Get vendors from the database and calculate distance
+    from .models import Services
     vendors = Services.objects.all()
-    nearby_vendors = []
-
+    nearby = []
     for vendor in vendors:
-        vendor_lat = vendor.latitude
-        vendor_lon = vendor.longitude
-        distance = haversine(subscriber_lat, subscriber_lon, vendor_lat, vendor_lon)
+        if vendor.latitude and vendor.longitude:
+            distance = haversine(subscriber_lat, subscriber_lon, vendor.latitude, vendor.longitude)
+            if distance <= 50:
+                vendor.distance = round(distance, 2)
+                nearby.append(vendor)
+    return nearby
 
-        if distance <= 50:  # 50 km threshold
-            nearby_vendors.append({
-                'vendor_name': vendor.vendor_name,
-                'vendor_address': vendor.address,
-                'distance': distance
-            })
-
-    return nearby_vendors

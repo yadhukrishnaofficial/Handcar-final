@@ -1578,52 +1578,44 @@ def send_vendor_notification(vendor_id, message):
             'message': message,  # Notification message
         }
     )
-  
 @csrf_exempt
 def add_subscriber(request):
     try:
         data = json.loads(request.body)
-
         email = data.get('email')
         address = data.get('address')
         service_type = data.get('service_type')
         plan = data.get('plan')
         duration = data.get('duration')
-        assigned_vendor_id = data.get('assigned_vendor')  # ID instead of name
         start_date = data.get('start_date')
+        assigned_vendor_id = data.get('assigned_vendor')
 
-        # Validate user
         if not User.objects.filter(email=email).exists():
             return JsonResponse({'error': 'No such user registered.'}, status=400)
 
-        # Parse date
         if start_date:
             try:
                 start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
             except ValueError:
-                return JsonResponse({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=400)
+                return JsonResponse({'error': 'Invalid start_date format.'}, status=400)
         else:
             return JsonResponse({'error': 'Start date is required.'}, status=400)
 
-        # Validate duration
         try:
             duration = int(duration)
         except (ValueError, TypeError):
             return JsonResponse({'error': 'Duration must be an integer.'}, status=400)
 
-        # Geocode address
-        if address:
-            subscriber_lat, subscriber_lon = get_geocoded_location(address)
-        else:
+        if not address:
             return JsonResponse({'error': 'Address is required for geocoding.'}, status=400)
 
-        # Check if vendor exists
+        subscriber_lat, subscriber_lon = get_geocoded_location(address)
+
         try:
             assigned_vendor = Services.objects.get(id=assigned_vendor_id)
         except Services.DoesNotExist:
             return JsonResponse({'error': 'Assigned vendor not found.'}, status=404)
 
-        # Save subscriber
         subscriber = Subscriber.objects.create(
             email=email,
             address=address,
@@ -1633,11 +1625,10 @@ def add_subscriber(request):
             start_date=start_date,
             latitude=subscriber_lat,
             longitude=subscriber_lon,
-            assigned_vendor=assigned_vendor.vendor_name  # storing name
+            assigned_vendor=assigned_vendor
         )
 
-        # Optional: Send notification
-        send_vendor_notification(assigned_vendor.vendor_name, f'You have a new subscriber: {subscriber.email}')
+        send_vendor_notification(assigned_vendor.vendor_name, f"New subscriber: {subscriber.email}")
 
         return JsonResponse({
             'message': 'Subscriber added successfully.',
@@ -1649,25 +1640,6 @@ def add_subscriber(request):
         return JsonResponse({'error': 'Invalid JSON.'}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-
-
-def view_subscribers(request):
-    if request.method == 'GET':
-        search_query = request.GET.get('search', '')
-        if search_query:
-            subscriber = Subscriber.objects.filter(name__icontains=search_query)
-        else:
-            subscriber = Subscriber.objects.all()
-        data = [{  "id": subscribers.id,
-                    "email": subscribers.email,
-                    "address": subscribers.address,
-                    "service_type": subscribers.service_type,
-                    "plan": subscribers.plan,
-                    "duration": subscribers.duration,
-                    "start_date": subscribers.start_date,
-                    "end_date": subscribers.end_date,
-                    "assigned_vendor": subscribers.assigned_vendor} for subscribers in subscriber]
-        return JsonResponse({"user": data}, safe=False)
 
 
 @csrf_exempt
@@ -3237,35 +3209,28 @@ def change_vendor_password(request, vendor_id):
     if request.method == 'POST':
         try:
             vendor = get_object_or_404(Services, id=vendor_id)
-
-            # Parse JSON input
-            data = json.loads(request.body.decode('utf-8'))
+            data = json.loads(request.body)
             old_password = data.get('old_password')
             new_password = data.get('new_password')
 
-            # Input validation
             if not old_password or not new_password:
                 return JsonResponse({"error": "Both old and new passwords are required."}, status=400)
 
-            # Check if vendor password is hashed
             if not vendor.password.startswith('pbkdf2_'):
-                return JsonResponse({"error": "Vendor password is not hashed. Please contact support."}, status=400)
+                vendor.password = make_password(old_password)
+                vendor.save()
 
-            # Verify old password
             if not check_password(old_password, vendor.password):
                 return JsonResponse({"error": "Old password is incorrect."}, status=401)
 
-            # Hash and save new password
             vendor.password = make_password(new_password)
             vendor.save()
-
             return JsonResponse({"message": "Password updated successfully."}, status=200)
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
 
 
@@ -3516,22 +3481,17 @@ def get_nearby_vendor_on_add_subscription(request):
             if not address:
                 return JsonResponse({'error': 'Address is required for geocoding.'}, status=400)
 
-            # Get coordinates from address
             subscriber_lat, subscriber_lon = get_geocoded_location(address)
-
-            # Find nearby vendors
             nearby_vendors = get_nearby_vendors(subscriber_lat, subscriber_lon)
 
-            if not nearby_vendors:
-                return JsonResponse({'nearby_vendors': [], 'message': 'No nearby vendors found.'}, status=200)
-
-            # Return useful vendor data
             vendor_data = [
                 {
-                    
+                    'id': vendor.id,
                     'name': vendor.vendor_name,
+                    'address': vendor.address,
                     'latitude': vendor.latitude,
-                    'longitude': vendor.longitude
+                    'longitude': vendor.longitude,
+                    'distance_km': vendor.distance,
                 }
                 for vendor in nearby_vendors
             ]

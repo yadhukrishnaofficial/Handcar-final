@@ -186,28 +186,7 @@ class Plan(models.Model):
 from .utils import geocode_address  # Import the geocode function from utils.py
 
 
-class Subscriber(models.Model):
-    email = models.EmailField()
-    address = models.TextField(blank=True)
-    latitude = models.FloatField(blank=True, null=True)
-    longitude = models.FloatField(blank=True, null=True)
-    service_type = models.CharField(max_length=100)
-    plan = models.CharField(max_length=100)
-    duration = models.IntegerField(help_text="Duration in months")
-    start_date = models.DateField()
-    end_date = models.DateField(blank=True, null=True, help_text="Calculated based on duration and start_date")
-    assigned_vendor = models.CharField(max_length=100, help_text="Name of the assigned vendor", blank=True, null=True)
 
-    def save(self, *args, **kwargs):
-        # Automatically calculate the end_date based on start_date and duration
-        if self.start_date and self.duration:
-            self.end_date = self.start_date + timedelta(days=self.duration * 30)  # Approximation: 30 days per month
-
-        # Geocode address to latitude and longitude if address is provided
-        if self.address and (not self.latitude or not self.longitude):
-            self.latitude, self.longitude = geocode_address(self.address)
-
-        super().save(*args, **kwargs)
 
 
 
@@ -251,6 +230,29 @@ class Services(models.Model):
 
         super().save(*args, **kwargs)
 
+
+class Subscriber(models.Model):
+    email = models.EmailField()
+    address = models.TextField(blank=True)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+    service_type = models.CharField(max_length=100)
+    plan = models.CharField(max_length=100)
+    duration = models.IntegerField(help_text="Duration in months")
+    start_date = models.DateField()
+    end_date = models.DateField(blank=True, null=True, help_text="Calculated based on duration and start_date")
+    assigned_vendor = models.ForeignKey(Services, on_delete=models.SET_NULL, null=True, blank=True, related_name="subscribers")
+
+    def save(self, *args, **kwargs):
+        # Automatically calculate the end_date based on start_date and duration
+        if self.start_date and self.duration:
+            self.end_date = self.start_date + timedelta(days=self.duration * 30)  # Approximation: 30 days per month
+
+        # Geocode address to latitude and longitude if address is provided
+        if self.address and (not self.latitude or not self.longitude):
+            self.latitude, self.longitude = geocode_address(self.address)
+
+        super().save(*args, **kwargs)
 
 class ServiceImage(models.Model):
     service = models.ForeignKey('Services', on_delete=models.CASCADE, related_name='images')
