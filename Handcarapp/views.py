@@ -1887,23 +1887,32 @@ def Vendor_Login(request):
         phone_number = request.POST.get('phone_number')
         password = request.POST.get('password')
 
+        # Debug: Print received data
+        print(f"Login attempt - Phone: {phone_number}, Password provided: {'Yes' if password else 'No'}")
+
+        if not phone_number or not password:
+            return JsonResponse({"error": "Phone number and password are required"}, status=400)
+
         try:
             # Retrieve vendor using phone number
             vendor = Services.objects.get(phone_number=phone_number)
+            print(f"Vendor found: {vendor.vendor_name}")
 
-            # Check the password against the hashed password
-            if password == vendor.password:
-                # You need to create a custom token for the vendor
+            # FIXED: Use check_password for hashed passwords
+            if check_password(password, vendor.password):
+                print("Password verification successful")
+                
+                # Create custom token for the vendor
                 refresh = RefreshToken()
                 refresh['vendor_id'] = vendor.id  # Store vendor-specific info in the token
-
-                # Generate JWT tokens
 
                 response = JsonResponse({
                     "message": "Vendor login successful",
                     "access_token": str(refresh.access_token),
-                    "refresh_token": str(refresh)
+                    "refresh_token": str(refresh),
+                    "vendor_id": vendor.id  # Include vendor_id in response for debugging
                 })
+                
                 # Set tokens in secure cookies
                 response.set_cookie(
                     'access_token', str(refresh.access_token),
@@ -1920,11 +1929,16 @@ def Vendor_Login(request):
                     samesite='None'
                 )
                 return response
-
-            return JsonResponse({"error": "Invalid credentials"}, status=401)
+            else:
+                print("Password verification failed")
+                return JsonResponse({"error": "Invalid credentials"}, status=401)
 
         except Services.DoesNotExist:
+            print(f"Vendor not found with phone number: {phone_number}")
             return JsonResponse({"error": "Invalid credentials"}, status=401)
+        except Exception as e:
+            print(f"Login error: {str(e)}")
+            return JsonResponse({"error": "Login failed"}, status=500)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
@@ -1941,15 +1955,18 @@ from rest_framework_simplejwt.tokens import RefreshToken
 def Vendor_Profile(request):
     if request.method == 'GET':
         # Retrieve the token from the cookies
-        token = request.COOKIES.get('access_token')  # Get token from cookies
+        token = request.COOKIES.get('access_token')
 
         if not token:
             return JsonResponse({"error": "Authorization token missing"}, status=400)
 
         try:
             # Decode the token to extract vendor_id
-            access_token = AccessToken(token)  # Decode the token
-            vendor_id = access_token['vendor_id']  # Extract vendor_id
+            access_token = AccessToken(token)
+            vendor_id = access_token.get('vendor_id')  # Use .get() for safer access
+
+            if not vendor_id:
+                return JsonResponse({"error": "Invalid token: vendor_id not found"}, status=400)
 
             print(f"Extracted vendor_id from token: {vendor_id}")
 
@@ -1969,7 +1986,7 @@ def Vendor_Profile(request):
                 'service_category': vendor.service_category.name if vendor.service_category else None,
                 'service_details': vendor.service_details,
                 'rate': vendor.rate,
-                'image': vendor.image if vendor.image else None,
+                'image': vendor.image.url if vendor.image else None,  # Return URL for image
                 'created_at': vendor.created_at,
                 'updated_at': vendor.updated_at
             })
@@ -1977,9 +1994,11 @@ def Vendor_Profile(request):
         except Services.DoesNotExist:
             return JsonResponse({"error": "Vendor not found"}, status=404)
         except Exception as e:
-            return JsonResponse({"error": str(e)}, status=500)
+            print(f"Profile error: {str(e)}")
+            return JsonResponse({"error": "Failed to retrieve profile"}, status=500)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
+
 
 
 from rest_framework_simplejwt.tokens import OutstandingToken, BlacklistedToken
@@ -2872,14 +2891,17 @@ def add_vendor_by_admin(request):
             if Services.objects.filter(email=email).exists():
                 return JsonResponse({"error": "Email already exists."}, status=400)
 
-            # Create the vendor
+            # Check if phone number already exists
+            if Services.objects.filter(phone_number=phone_number).exists():
+                return JsonResponse({"error": "Phone number already exists."}, status=400)
+
+            # Create the vendor with hashed password
             vendor = Services.objects.create(
                 vendor_name=vendor_name,
                 phone_number=phone_number,
                 email=email,
-                password=make_password(password)
+                password=make_password(password)  # This is correct - password is hashed
             )
-            
 
             return JsonResponse({
                 "message": "Service Vendor added successfully.",
@@ -2894,6 +2916,7 @@ def add_vendor_by_admin(request):
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data."}, status=400)
         except Exception as e:
+            print(f"Add vendor error: {str(e)}")
             return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid HTTP method."}, status=405)
@@ -3224,32 +3247,47 @@ from .models import Services  # Make sure this import is correct
 
 @csrf_exempt
 def change_vendor_password(request, vendor_id):
-    if request.method == 'POST':
+     if request.method == 'POST':
+        token = request.COOKIES.get('access_token')
+        
+        if not token:
+            return JsonResponse({"error": "Authorization token missing"}, status=400)
+        
         try:
-            vendor = get_object_or_404(Services, id=vendor_id)
-            data = json.loads(request.body)
-            old_password = data.get('old_password')
-            new_password = data.get('new_password')
-
-            if not old_password or not new_password:
-                return JsonResponse({"error": "Both old and new passwords are required."}, status=400)
-
-            if not vendor.password.startswith('pbkdf2_'):
-                vendor.password = make_password(old_password)
-                vendor.save()
-
-            if not check_password(old_password, vendor.password):
-                return JsonResponse({"error": "Old password is incorrect."}, status=401)
-
+            # Get vendor from token
+            access_token = AccessToken(token)
+            vendor_id = access_token.get('vendor_id')
+            
+            if not vendor_id:
+                return JsonResponse({"error": "Invalid token"}, status=400)
+            
+            vendor = Services.objects.get(id=vendor_id)
+            
+            current_password = request.POST.get('current_password')
+            new_password = request.POST.get('new_password')
+            
+            if not current_password or not new_password:
+                return JsonResponse({"error": "Current password and new password required"}, status=400)
+            
+            # Verify current password
+            if not check_password(current_password, vendor.password):
+                return JsonResponse({"error": "Current password is incorrect"}, status=400)
+            
+            # Set new password
             vendor.password = make_password(new_password)
             vendor.save()
-            return JsonResponse({"message": "Password updated successfully."}, status=200)
-
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON data."}, status=400)
+            
+            return JsonResponse({
+                "message": "Password updated successfully",
+                "vendor_name": vendor.vendor_name
+            })
+            
+        except Services.DoesNotExist:
+            return JsonResponse({"error": "Vendor not found"}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-    return JsonResponse({"error": "Invalid HTTP method."}, status=405)
+    
+     return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
 import json
@@ -3560,4 +3598,16 @@ def get_vendor_subscribers(request, vendor_id):
 def home(request):
     return HttpResponse("Hi handcar")
 
-    
+
+
+
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+from django.contrib.auth.models import User
+from django.contrib.auth.hashers import check_password, make_password
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+import json
