@@ -156,15 +156,44 @@ def login_with_otp(request):
 
 
 
+
 @csrf_exempt
 def view_products(request):
     if request.method == 'GET':
         search_query = request.GET.get('search', '')
-        if search_query:
-            products = Product.objects.filter(name__icontains=search_query)
-        else:
-            products = Product.objects.all()
+        category = request.GET.get('category', '')
+        brand = request.GET.get('brand', '')
+        min_price = request.GET.get('min_price', '')
+        max_price = request.GET.get('max_price', '')
+        sort_order = request.GET.get('sort', '')  # 'asc' or 'desc'
 
+        products = Product.objects.all()
+
+        # Filter by search query
+        if search_query:
+            products = products.filter(name__icontains=search_query)
+
+        # Filter by category
+        if category:
+            products = products.filter(category_name_icontains=category)
+
+        # Filter by brand
+        if brand:
+            products = products.filter(brand_name_icontains=brand)
+
+        # Filter by price range
+        if min_price:
+            products = products.filter(price__gte=min_price)
+        if max_price:
+            products = products.filter(price__lte=max_price)
+
+        # Sorting by price
+        if sort_order == 'asc':
+            products = products.order_by('price')
+        elif sort_order == 'desc':
+            products = products.order_by('-price')
+
+        # Prepare response data
         data = [
             {
                 "id": product.id,
@@ -172,17 +201,17 @@ def view_products(request):
                 "category": product.category.name,
                 "brand": product.brand.name,
                 "price": product.price,
-                "stock":product.stock,
-                # "image": product.image.url if product.image else None,
+                "stock": product.stock,
                 "image": product.image if product.image else None,
                 "description": product.description,
                 "is_bestseller": product.is_bestseller,
             }
             for product in products
         ]
-        return JsonResponse({"product": data}, safe=False)
-    return JsonResponse({'Error':'Invalid request method'})
 
+        return JsonResponse({"product": data}, safe=False)
+
+    return JsonResponse({'error': 'Invalid request method'}, status=400)
 
 # Custom JWT Authentication to handle token from HttpOnly cookies
 from rest_framework.views import APIView
@@ -1640,19 +1669,23 @@ def view_subscribers(request):
     if request.method == 'GET':
         search_query = request.GET.get('search', '')
         if search_query:
-            subscriber = Subscriber.objects.filter(name__icontains=search_query)
+            subscribers = Subscriber.objects.filter(email__icontains=search_query)  # Assuming 'email' not 'name'
         else:
-            subscriber = Subscriber.objects.all()
-        data = [{  "id": subscribers.id,
-                    "email": subscribers.email,
-                    "address": subscribers.address,
-                    "service_type": subscribers.service_type,
-                    "plan": subscribers.plan,
-                    "duration": subscribers.duration,
-                    "start_date": subscribers.start_date,
-                    "end_date": subscribers.end_date,
-                    "assigned_vendor": subscribers.assigned_vendor} for subscribers in subscriber]
-        return JsonResponse({"user": data}, safe=False)
+            subscribers = Subscriber.objects.all()
+
+        data = [{
+            "id": sub.id,
+            "email": sub.email,
+            "address": sub.address,
+            "service_type": sub.service_type,
+            "plan": sub.plan,
+            "duration": sub.duration,
+            "start_date": sub.start_date.strftime('%Y-%m-%d') if sub.start_date else None,
+            "end_date": sub.end_date.strftime('%Y-%m-%d') if sub.end_date else None,
+            "assigned_vendor": sub.assigned_vendor.vendor_name if sub.assigned_vendor else None,
+        } for sub in subscribers]
+
+        return JsonResponse({"user": data},safe=False)
 
 @csrf_exempt
 @api_view(['GET'])
