@@ -204,6 +204,7 @@ def view_products(request):
                 "stock": product.stock,
                 "image": product.image if product.image else None,
                 "description": product.description,
+                "discount_percentage": product.discount_percentage,
                 "is_bestseller": product.is_bestseller,
             }
             for product in products
@@ -3290,14 +3291,14 @@ def change_vendor_password(request, vendor_id):
             
             vendor = Services.objects.get(id=vendor_id)
             
-            current_password = request.POST.get('current_password')
+            old_password = request.POST.get('old_password')
             new_password = request.POST.get('new_password')
             
-            if not current_password or not new_password:
+            if not old_password or not new_password:
                 return JsonResponse({"error": "Current password and new password required"}, status=400)
             
             # Verify current password
-            if not check_password(current_password, vendor.password):
+            if not check_password(old_password, vendor.password):
                 return JsonResponse({"error": "Current password is incorrect"}, status=400)
             
             # Set new password
