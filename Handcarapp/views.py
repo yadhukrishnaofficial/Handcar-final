@@ -2014,7 +2014,7 @@ def Vendor_Profile(request):
                 'service_category': vendor.service_category.name if vendor.service_category else None,
                 'service_details': vendor.service_details,
                 'rate': vendor.rate,
-                'image': vendor.image.url if vendor.image else None,  # Return URL for image
+                "images": [img.image.url if hasattr(img.image, 'url') else img.image for img in vendor.images.all()], 
                 'created_at': vendor.created_at,
                 'updated_at': vendor.updated_at
             })
@@ -3265,57 +3265,59 @@ def reset_password(request, uidb64, token):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
-
-import json
-from django.http import JsonResponse
+    
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
 from django.contrib.auth.hashers import check_password, make_password
-from .models import Services  # Make sure this import is correct
+from rest_framework_simplejwt.tokens import AccessToken
+import json
+from .models import Services
 
 @csrf_exempt
 def change_vendor_password(request, vendor_id):
-     if request.method == 'POST':
+    if request.method == 'POST':
         token = request.COOKIES.get('access_token')
-        
+
         if not token:
             return JsonResponse({"error": "Authorization token missing"}, status=400)
-        
+
         try:
-            # Get vendor from token
+            # Decode token to get vendor_id
             access_token = AccessToken(token)
             vendor_id = access_token.get('vendor_id')
-            
+
             if not vendor_id:
                 return JsonResponse({"error": "Invalid token"}, status=400)
-            
+
             vendor = Services.objects.get(id=vendor_id)
-            
-            old_password = request.POST.get('old_password')
-            new_password = request.POST.get('new_password')
-            
+
+            # Parse JSON data
+            data = json.loads(request.body)
+            old_password = data.get('old_password')
+            new_password = data.get('new_password')
+
             if not old_password or not new_password:
                 return JsonResponse({"error": "Current password and new password required"}, status=400)
-            
+
             # Verify current password
             if not check_password(old_password, vendor.password):
                 return JsonResponse({"error": "Current password is incorrect"}, status=400)
-            
+
             # Set new password
             vendor.password = make_password(new_password)
             vendor.save()
-            
+
             return JsonResponse({
                 "message": "Password updated successfully",
                 "vendor_name": vendor.vendor_name
             })
-            
+
         except Services.DoesNotExist:
             return JsonResponse({"error": "Vendor not found"}, status=404)
         except Exception as e:
             return JsonResponse({"error": str(e)}, status=500)
-    
-     return JsonResponse({"error": "Invalid request method"}, status=405)
+
+    return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
 import json
