@@ -173,13 +173,15 @@ def view_products(request):
         if search_query:
             products = products.filter(name__icontains=search_query)
 
-        # Filter by category
+        # ✅ Multi-category filter (comma-separated)
         if category:
-            products = products.filter(Q(category__name__icontains=category))
+            category_list = [c.strip() for c in category.split(',')]
+            products = products.filter(category__name__in=category_list)
 
-        # Filter by brand
+        # ✅ Multi-brand filter (comma-separated)
         if brand:
-            products = products.filter(Q(brand__name__icontains=brand))
+            brand_list = [b.strip() for b in brand.split(',')]
+            products = products.filter(brand__name__in=brand_list)
 
         # Filter by price range
         if min_price:
@@ -1695,7 +1697,7 @@ def view_users_by_admin(request):
     if request.method == 'GET':
         search_query = request.GET.get('search', '')
         if search_query:
-            user = User.objects.filter(username__icontains=search_query)
+            user = User.objects.filter(first_name__icontains=search_query)
         else:
             user = User.objects.filter(is_superuser=False)
         data = [{  "id": users.id,
@@ -3489,7 +3491,7 @@ def promoted_brands_products(request):
                 "id": product.id,
                 "name": product.name,
                 "price": product.price,
-                "image": product.image.url if product.image and hasattr(product.image, 'url') else None
+                "image": product.image if product.image else None
             }
                 for product in brands_products
         ]
@@ -3591,31 +3593,27 @@ def get_nearby_vendor_on_add_subscription(request):
     return JsonResponse({'error': 'Invalid request method. Use POST.'}, status=405)
 
 
-from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import get_object_or_404
-from django.http import JsonResponse
-from .models import Services, Subscriber
-
 @csrf_exempt
 def get_vendor_subscribers(request, vendor_id):
     if request.method == 'GET':
         try:
-            # Get vendor
             vendor = get_object_or_404(Services, id=vendor_id)
 
-            # Fetch all subscribers where assigned_vendor matches vendor name
-            subscribers = Subscriber.objects.filter(assigned_vendor=vendor.vendor_name)
+            # Get all subscribers assigned to this vendor (FK relation)
+            subscribers = Subscriber.objects.filter(assigned_vendor=vendor)
 
-            subscriber_data = []
-            for sub in subscribers:
-                subscriber_data.append({
+            subscriber_data = [
+                {
                     'email': sub.email,
                     'address': sub.address,
                     'service_type': sub.service_type,
                     'plan': sub.plan,
-                    'start_date': sub.start_date.strftime('%Y-%m-%d'),
-                    'end_date': sub.end_date.strftime('%Y-%m-%d') if sub.end_date else None
-                })
+                    'duration': sub.duration,
+                    'start_date': sub.start_date.strftime('%Y-%m-%d') if sub.start_date else None,
+                    'end_date': sub.end_date.strftime('%Y-%m-%d') if sub.end_date else None,
+                }
+                for sub in subscribers
+            ]
 
             return JsonResponse({'subscribers': subscriber_data}, status=200)
 
