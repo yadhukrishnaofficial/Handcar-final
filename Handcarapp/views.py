@@ -173,12 +173,12 @@ def view_products(request):
         if search_query:
             products = products.filter(name__icontains=search_query)
 
-        # ✅ Multi-category filter (comma-separated)
+        #  Multi-category filter (comma-separated)
         if category:
             category_list = [c.strip() for c in category.split(',')]
             products = products.filter(category__name__in=category_list)
 
-        # ✅ Multi-brand filter (comma-separated)
+        #  Multi-brand filter (comma-separated)
         if brand:
             brand_list = [b.strip() for b in brand.split(',')]
             products = products.filter(brand__name__in=brand_list)
@@ -3599,8 +3599,15 @@ def get_vendor_subscribers(request, vendor_id):
         try:
             vendor = get_object_or_404(Services, id=vendor_id)
 
-            # Get all subscribers assigned to this vendor (FK relation)
+            # Get search query from request
+            search_query = request.GET.get('search', '').strip()
+
+            # Filter subscribers assigned to this vendor
             subscribers = Subscriber.objects.filter(assigned_vendor=vendor)
+
+            # Apply email search filter if provided
+            if search_query:
+                subscribers = subscribers.filter(email__icontains=search_query)
 
             subscriber_data = [
                 {
@@ -3622,20 +3629,85 @@ def get_vendor_subscribers(request, vendor_id):
 
     return JsonResponse({'error': 'Invalid HTTP method'}, status=405)
 
-    
+
+@csrf_exempt
+@api_view(["GET"])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_service_logs_for_vendor(request):
+    try:
+        vendor = request.user  # Authenticated vendor user
+
+        # Optional search by user first_name
+        user_name_search = request.GET.get('search', '').strip()
+
+        # Get the vendor's service
+        service = Services.objects.filter(user=vendor).first()
+        if not service:
+            return JsonResponse({"error": "Service not found for this vendor"}, status=404)
+
+        # Base queryset
+        logs = ServiceInteractionLog.objects.filter(service=service)
+
+        # Filter by user's first name
+        if user_name_search:
+            logs = logs.filter(user__first_name__icontains=user_name_search)
+
+        # Prepare response
+        logs_data = [
+            {
+                "id": log.id,
+                "user_id": log.user.id if log.user else None,
+                "user_name": log.user.get_full_name() if log.user else "Unknown User",
+                "action": log.get_action_display(),
+                "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            for log in logs.order_by("-timestamp")
+        ]
+
+        return JsonResponse({"logs": logs_data}, status=200)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@csrf_exempt
+@api_view(["GET"])
+@permission_classes([IsAdminUser]) 
+def admin_dashboard(request):
+    try:
+        total_services = Services.objects.count()
+        total_accessories = Product.objects.count()
+        total_users = User.objects.filter(is_superuser=False, is_staff=False).count()
+        total_subscribers = Subscriber.objects.count()
+        return JsonResponse({
+            "total_services": total_services,
+            "total_accessories": total_accessories,
+            "total_users": total_users,
+            "total_subscribers": total_subscribers
+        }, status=200)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500) 
+
+
+@csrf_exempt
+@api_view(["GET"])
+@authentication_classes([CustomJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def vendor_dashboard(request):
+    try:
+        vendor_user = request.user
+        vendor_profile = Services.objects.filter(user=vendor_user).first()
+        if not vendor_profile:
+            return JsonResponse({'error': 'Vendor profile not found.'}, status=404)
+        total_subscribers = Subscriber.objects.filter(assigned_vendor=vendor_profile).count()
+        return JsonResponse({
+            'total_subscribers': total_subscribers,
+        }, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
 def home(request):
     return HttpResponse("Hi handcar")
 
 
-
-
-from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
-from django.contrib.auth.models import User
-from django.contrib.auth.hashers import check_password, make_password
-from django.core.validators import validate_email
-from django.core.exceptions import ValidationError
-from django.views.decorators.csrf import csrf_exempt
-from django.http import JsonResponse
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
-import json

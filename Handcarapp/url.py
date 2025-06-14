@@ -134,7 +134,10 @@ urlpatterns = [
     path('promoted_brands_products', views.promoted_brands_products, name='promoted_brands_products'),
     path('get_all_orders', views.get_all_orders, name='get_all_orders'),
     path('get_nearby_vendor_on_add_subscription', views.get_nearby_vendor_on_add_subscription, name='get_nearby_vendor_on_add_subscription'),
-    path('get_vendor_subscribers/<int:vendor_id>/', views.get_vendor_subscribers, name='get_vendor_subscribers')
+    path('get_vendor_subscribers/<int:vendor_id>/', views.get_vendor_subscribers, name='get_vendor_subscribers'),
+    path('get_service_interaction_logs_vendor', views.get_service_logs_for_vendor, name='get_service_interaction_logs_vendor'),
+    path('admin_dashboard', views.admin_dashboard, name='admin_dashboard'),
+    path('vendor_dashboard', views.vendor_dashboard, name='vendor_dashboard'),
 
 ]
 
