@@ -3632,43 +3632,35 @@ def get_vendor_subscribers(request, vendor_id):
 
 @csrf_exempt
 @api_view(["GET"])
-@authentication_classes([CustomJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_service_logs_for_vendor(request):
+def get_service_logs_for_vendor(request, vendor_id):
     try:
-        vendor = request.user  # Authenticated vendor user
+        # Fetch the vendor object
+        vendor = get_object_or_404(Services, id=vendor_id)
 
-        # Optional search by user first_name
-        user_name_search = request.GET.get('search', '').strip()
+        # Filter logs related to this vendor
+        logs = ServiceInteractionLog.objects.filter(service=vendor)
 
-        # Get the vendor's service
-        service = Services.objects.filter(user=vendor).first()
-        if not service:
-            return JsonResponse({"error": "Service not found for this vendor"}, status=404)
-
-        # Base queryset
-        logs = ServiceInteractionLog.objects.filter(service=service)
-
-        # Filter by user's first name
-        if user_name_search:
-            logs = logs.filter(user__first_name__icontains=user_name_search)
+        # Optional search by user's first name
+        search_name = request.GET.get('search', '')
+        if search_name:
+            logs = logs.filter(user__first_name__icontains=search_name)
 
         # Prepare response
         logs_data = [
             {
                 "id": log.id,
-                "user_id": log.user.id if log.user else None,
-                "user_name": log.user.get_full_name() if log.user else "Unknown User",
                 "action": log.get_action_display(),
+                "status": log.get_status_display(),
                 "timestamp": log.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                "user_name": log.user.get_full_name() if log.user else "Unknown User",
             }
-            for log in logs.order_by("-timestamp")
+            for log in logs
         ]
 
         return JsonResponse({"logs": logs_data}, status=200)
 
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
 
 @csrf_exempt
 @api_view(["GET"])
@@ -3688,24 +3680,75 @@ def admin_dashboard(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500) 
 
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from rest_framework.decorators import api_view
+from django.shortcuts import get_object_or_404
+from .models import Product, Subscriber, Services, ServiceInteractionLog
 
 @csrf_exempt
 @api_view(["GET"])
-@authentication_classes([CustomJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def vendor_dashboard(request):
+def vendor_dashboard(request, vendor_id):
     try:
-        vendor_user = request.user
-        vendor_profile = Services.objects.filter(user=vendor_user).first()
-        if not vendor_profile:
-            return JsonResponse({'error': 'Vendor profile not found.'}, status=404)
-        total_subscribers = Subscriber.objects.filter(assigned_vendor=vendor_profile).count()
+        # Get vendor instance
+        vendor = get_object_or_404(Services, id=vendor_id)
+
+        # Count of subscribers assigned to this vendor
+        total_subscribers = Subscriber.objects.filter(assigned_vendor=vendor).count()
+
+        # Count of service interaction logs (service requests)
+        total_service_requests = ServiceInteractionLog.objects.filter(service=vendor).count()
+
         return JsonResponse({
-            'total_subscribers': total_subscribers,
+            "total_subscribers": total_subscribers,
+            "total_service_requests": total_service_requests,
         }, status=200)
 
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+    
+
+
+@api_view(['GET'])
+def service_average_rating(request, service_id):
+    try:
+        service = get_object_or_404(Services, id=service_id)
+        ratings = service.ratings.all()  # related_name = 'ratings' is used here
+
+        if ratings.exists():
+            avg_rating = round(sum(r.rating for r in ratings) / ratings.count(), 1)
+        else:
+            avg_rating = 0
+
+        return JsonResponse({
+            'service_id': service.id,
+            'vendor_name': service.vendor_name,
+            'average_rating': avg_rating,
+            'total_reviews': ratings.count()
+        }, status=200)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
+
+@api_view(['GET'])
+def product_average_rating(request, product_id):
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        reviews = product.reviews.all()
+        if reviews.exists():
+            avg_rating = round(sum(review.rating for review in reviews) / reviews.count(), 1)
+        else:
+            avg_rating = 0
+        return JsonResponse({'product_id': product.id, 'average_rating': avg_rating})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+
+
+
+
 
 def home(request):
     return HttpResponse("Hi handcar")
