@@ -3765,3 +3765,4 @@ def home(request):
     return HttpResponse("Hi handcar")
 
 
+#completed
