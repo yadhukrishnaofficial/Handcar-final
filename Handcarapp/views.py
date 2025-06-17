@@ -2383,6 +2383,8 @@ def view_service_categories_user(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+from django.db.models import Q
+
 @csrf_exempt
 def view_service_user(request):
     try:
@@ -2391,8 +2393,18 @@ def view_service_user(request):
     except (TypeError, ValueError):
         return JsonResponse({"error": "Invalid Latitude or Longitude."}, status=400)
 
-    radius = 20  # Define the search radius in kilometers
+    radius = 20
     nearby_services = []
+
+    search_query = request.GET.get('service', "").strip()
+    services = Services.objects.all()
+
+    # 🔍 Apply search filter on vendor_name or address
+    if search_query:
+        services = services.filter(
+            Q(address__icontains=search_query) |
+            Q(vendor_name__icontains=search_query)
+        )
 
     def get_service_data(service, distance=None):
         ratings = service.ratings.all()
@@ -2412,17 +2424,15 @@ def view_service_user(request):
             **({"distance": round(distance, 2)} if distance is not None else {})
         }
 
-    # If latitude and longitude are provided, calculate distances
     if user_lat is not None and user_lng is not None:
-        for service in Services.objects.all():
+        for service in services:
             if service.latitude is not None and service.longitude is not None:
                 distance = haversine(user_lat, user_lng, service.latitude, service.longitude)
                 if distance <= radius:
                     nearby_services.append(get_service_data(service, distance))
 
-    # Fallback: if no location or no nearby services
     if not user_lat or not user_lng or not nearby_services:
-        for service in Services.objects.all():
+        for service in services:
             nearby_services.append(get_service_data(service))
 
     return JsonResponse({'services': nearby_services}, status=200)
