@@ -208,6 +208,10 @@ def view_products(request):
                 "description": product.description,
                 "discount_percentage": product.discount_percentage,
                 "is_bestseller": product.is_bestseller,
+                "average_rating": round(
+                sum(review.rating for review in product.reviews.all()) / product.reviews.count(), 1
+                ) if product.reviews.exists() else 0,
+                "total_reviews": product.reviews.count(),
             }
             for product in products
         ]
@@ -2409,6 +2413,10 @@ def view_service_user(request):
                         "rate": service.rate,
                         "images": [image.image.url for image in service.images.all()],
                         "distance": round(distance, 2),
+                        "average_rating": round(
+                            sum(r.rating for r in service.ratings.all()) / service.ratings.count(), 1
+                        ) if service.ratings.exists() else 0,
+                        "total_reviews": service.ratings.count(),
                     })
 
     # If no latitude and longitude are provided, or no services found nearby, return all services
