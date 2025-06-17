@@ -2383,7 +2383,6 @@ def view_service_categories_user(request):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
-
 @csrf_exempt
 def view_service_user(request):
     try:
@@ -2395,44 +2394,36 @@ def view_service_user(request):
     radius = 20  # Define the search radius in kilometers
     nearby_services = []
 
+    def get_service_data(service, distance=None):
+        ratings = service.ratings.all()
+        avg_rating = round(sum(r.rating for r in ratings) / ratings.count(), 1) if ratings.exists() else 0
+        return {
+            "id": service.id,
+            "vendor_name": service.vendor_name,
+            "phone_number": service.phone_number,
+            "whatsapp_number": service.whatsapp_number,
+            "service_category": service.service_category.name if service.service_category else None,
+            "service_details": service.service_details,
+            "address": service.address,
+            "rate": service.rate,
+            "images": [image.image.url for image in service.images.all()],
+            "average_rating": avg_rating,
+            "total_reviews": ratings.count(),
+            **({"distance": round(distance, 2)} if distance is not None else {})
+        }
+
     # If latitude and longitude are provided, calculate distances
     if user_lat is not None and user_lng is not None:
         for service in Services.objects.all():
             if service.latitude is not None and service.longitude is not None:
                 distance = haversine(user_lat, user_lng, service.latitude, service.longitude)
-
                 if distance <= radius:
-                    nearby_services.append({
-                        "id": service.id,
-                        "vendor_name": service.vendor_name,
-                        "phone_number": service.phone_number,
-                        "whatsapp_number": service.whatsapp_number,
-                        "service_category": service.service_category.name if service.service_category else None,
-                        "service_details": service.service_details,
-                        "address": service.address,
-                        "rate": service.rate,
-                        "images": [image.image.url for image in service.images.all()],
-                        "distance": round(distance, 2),
-                        "average_rating": round(
-                            sum(r.rating for r in service.ratings.all()) / service.ratings.count(), 1
-                        ) if service.ratings.exists() else 0,
-                        "total_reviews": service.ratings.count(),
-                    })
+                    nearby_services.append(get_service_data(service, distance))
 
-    # If no latitude and longitude are provided, or no services found nearby, return all services
+    # Fallback: if no location or no nearby services
     if not user_lat or not user_lng or not nearby_services:
         for service in Services.objects.all():
-            nearby_services.append({
-                "id": service.id,
-                "vendor_name": service.vendor_name,
-                "phone_number": service.phone_number,
-                "whatsapp_number": service.whatsapp_number,
-                "service_category": service.service_category.name if service.service_category else None,
-                "service_details": service.service_details,
-                "address": service.address,
-                "rate": service.rate,
-                "images": [image.image.url for image in service.images.all()],
-            })
+            nearby_services.append(get_service_data(service))
 
     return JsonResponse({'services': nearby_services}, status=200)
 
@@ -3639,8 +3630,10 @@ def get_vendor_subscribers(request, vendor_id):
 
 
 @csrf_exempt
-@api_view(["GET"])
 def get_service_logs_for_vendor(request, vendor_id):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
+
     try:
         # Fetch the vendor object
         vendor = get_object_or_404(Services, id=vendor_id)
